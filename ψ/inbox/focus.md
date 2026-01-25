@@ -1,30 +1,41 @@
 # Current Focus
 
 **STATE**: working
-**TASK**: Phase 0 - Foundation Setup
-**SINCE**: 2026-01-25 10:00
+**TASK**: Phase 1 - Core Memory
+**SINCE**: 2026-01-25
 
 ---
 
-## Active Work
+## Completed (Phase 0)
 
-Setting up Panya Original foundation:
 - [x] Create GitHub repo
 - [x] Create ψ/ structure
 - [x] Write CLAUDE.md
 - [x] Write Robin's identity (robin-alpha.md)
 - [x] Write First Principles philosophy
 - [x] Write Architect profile
-- [ ] Initial commit to GitHub
-- [ ] Plan Phase 1 tasks
+- [x] Initial commit to GitHub
+- [x] Rename Oracle → Panya
+- [x] Define Personal Brain vision
+- [x] Create roadmap
 
 ---
 
-## Next Steps
+## Active Work (Phase 1)
 
-1. Commit and push to GitHub
-2. Define Phase 1: Auto Learning
-3. Start building file watcher
+Building Core Memory system:
+- [ ] File watcher (auto-index on change)
+- [ ] Conversation insight extractor
+- [ ] Memory types schema
+- [ ] Hybrid search improvements
+
+---
+
+## Next Up
+
+1. Create Phase 1 spec document
+2. Build file watcher service
+3. Build conversation capture
 
 ---
 
