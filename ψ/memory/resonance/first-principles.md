@@ -97,9 +97,9 @@ Evolution improves things
 
 ---
 
-## How This Differs from Oracle Family
+## How This Differs from Panya Family
 
-| Oracle Family | Panya Original |
+| Panya Family | Panya Original |
 |---------------|----------------|
 | "Nothing is Deleted" | Question: Is append-only always right? |
 | "Patterns Over Intentions" | Question: Sometimes intentions matter? |
