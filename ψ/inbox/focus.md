@@ -31,16 +31,18 @@
 Building Core Memory system with Skills preparation:
 
 ### Week 1
-- [ ] Database schema migration (entities, relationships, temporal)
-- [ ] File watcher service
-- [ ] Entity extractor (rules + LLM hybrid)
-- [ ] Skills directory structure (ψ/skills/)
+- [x] Database schema migration (entities, relationships, temporal)
+- [x] File watcher service
+- [x] Entity extractor (rules + LLM hybrid)
+- [x] Skills directory structure (ψ/skills/)
 
 ### Week 2
 - [ ] Relationship builder
 - [ ] Enhanced hybrid search
-- [ ] Conversation insight extractor
+- [x] Conversation insight extractor (auto-learn skill)
 - [ ] Integration tests
+- [ ] context-radar skill
+- [ ] MCP tool registration for auto-learn
 
 ---
 
