@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panya Ontology | Self-Learning System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #111111;
+      --bg-tertiary: #1a1a1a;
+      --bg-card: #141414;
+      --border-color: #2a2a2a;
+      --border-hover: #3a3a3a;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --text-muted: #666666;
+      --accent-cyan: #00d4ff;
+      --accent-blue: #0095ff;
+      --accent-green: #00ff88;
+      --accent-yellow: #ffcc00;
+      --accent-red: #ff4444;
+      --accent-purple: #aa66ff;
+      --level-1: #ff6b6b;
+      --level-2: #ffa94d;
+      --level-3: #69db7c;
+      --level-4: #00d4ff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.error {
+      background: var(--accent-red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Main Layout */
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      padding: 1.5rem;
+    }
+
+    .nav-section {
+      margin-bottom: 2rem;
+    }
+
+    .nav-section-title {
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.625rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+    }
+
+    .nav-item-icon {
+      width: 18px;
+      height: 18px;
+      opacity: 0.7;
+    }
+
+    /* Content */
+    .content {
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .page-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-bottom: 2rem;
+    }
+
+    /* Cards */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      transition: border-color 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .card-value {
+      font-size: 2rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 0.5rem;
+    }
+
+    .card-value.cyan { color: var(--accent-cyan); }
+    .card-value.green { color: var(--accent-green); }
+    .card-value.yellow { color: var(--accent-yellow); }
+    .card-value.purple { color: var(--accent-purple); }
+
+    .card-change {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    /* Level Bars */
+    .level-distribution {
+      margin-top: 1rem;
+    }
+
+    .level-bar {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .level-label {
+      width: 100px;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-secondary);
+    }
+
+    .level-track {
+      flex: 1;
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .level-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .level-fill.l1 { background: var(--level-1); }
+    .level-fill.l2 { background: var(--level-2); }
+    .level-fill.l3 { background: var(--level-3); }
+    .level-fill.l4 { background: var(--level-4); }
+
+    .level-count {
+      width: 50px;
+      text-align: right;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-secondary);
+    }
+
+    /* Tables */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .table-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 1rem 1.5rem;
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--border-color);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--bg-tertiary);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge.l1 { background: rgba(255, 107, 107, 0.2); color: var(--level-1); }
+    .badge.l2 { background: rgba(255, 169, 77, 0.2); color: var(--level-2); }
+    .badge.l3 { background: rgba(105, 219, 124, 0.2); color: var(--level-3); }
+    .badge.l4 { background: rgba(0, 212, 255, 0.2); color: var(--level-4); }
+
+    .badge.detected { background: rgba(255, 204, 0, 0.2); color: var(--accent-yellow); }
+    .badge.validated { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
+    .badge.rejected { background: rgba(255, 68, 68, 0.2); color: var(--accent-red); }
+    .badge.applied { background: rgba(0, 212, 255, 0.2); color: var(--accent-cyan); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: none;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--accent-cyan);
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      background: #00e5ff;
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-secondary);
+    }
+
+    .btn-danger {
+      background: rgba(255, 68, 68, 0.1);
+      color: var(--accent-red);
+      border: 1px solid rgba(255, 68, 68, 0.2);
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 68, 68, 0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Action Bar */
+    .action-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+    }
+
+    .form-textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    /* Loop Status */
+    .loop-status {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+
+    .loop-indicator {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 3px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .loop-indicator.running {
+      border-color: var(--accent-cyan);
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .loop-info {
+      flex: 1;
+    }
+
+    .loop-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .loop-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+
+    .panel-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+    }
+
+    .panel-body {
+      padding: 1.5rem;
+    }
+
+    /* Identity Facets */
+    .facet-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .facet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .facet-name {
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .facet-type {
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .facet-content {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .locked-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.625rem;
+      color: var(--accent-yellow);
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 1000;
+    }
+
+    .toast {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      animation: slideIn 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .toast.success { border-color: var(--accent-green); }
+    .toast.error { border-color: var(--accent-red); }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Hidden sections */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    /* Guide Styles */
+    .guide-container {
+      max-width: 900px;
+    }
+
+    .guide-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .guide-card.highlight {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+    }
+
+    .guide-card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .guide-icon {
+      font-size: 1.5rem;
+    }
+
+    .guide-card-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .guide-card-body {
+      padding: 1.5rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    .guide-card-body p {
+      margin-bottom: 1rem;
+    }
+
+    .guide-card-body ul, .guide-card-body ol {
+      margin: 1rem 0;
+      padding-left: 1.5rem;
+    }
+
+    .guide-card-body li {
+      margin-bottom: 0.5rem;
+    }
+
+    .guide-card-body strong {
+      color: var(--text-primary);
+    }
+
+    .guide-card-body code {
+      background: var(--bg-tertiary);
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      color: var(--accent-cyan);
+    }
+
+    .guide-card-body pre {
+      background: var(--bg-tertiary);
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    .guide-card-body pre code {
+      background: none;
+      padding: 0;
+      color: var(--text-secondary);
+    }
+
+    .guide-highlight {
+      background: rgba(0, 212, 255, 0.1);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .guide-box {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+    }
+
+    .guide-box.warning {
+      border-color: var(--accent-yellow);
+      background: rgba(255, 204, 0, 0.05);
+    }
+
+    .guide-box h4 {
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .guide-box p, .guide-box ul, .guide-box ol {
+      margin-bottom: 0;
+    }
+
+    /* Level Guide */
+    .level-guide {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 1.5rem 0;
+    }
+
+    .level-guide-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      background: var(--bg-tertiary);
+      padding: 1rem;
+      border-radius: 6px;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .level-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      flex-shrink: 0;
+    }
+
+    .level-badge.l1 { background: rgba(255, 107, 107, 0.2); color: var(--level-1); }
+    .level-badge.l2 { background: rgba(255, 169, 77, 0.2); color: var(--level-2); }
+    .level-badge.l3 { background: rgba(105, 219, 124, 0.2); color: var(--level-3); }
+    .level-badge.l4 { background: rgba(0, 212, 255, 0.2); color: var(--level-4); }
+
+    .level-guide-content h4 {
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .level-guide-content p {
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+
+    .level-meta {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .level-arrow {
+      color: var(--text-muted);
+      font-size: 1.25rem;
+    }
+
+    /* Loop Diagram */
+    .loop-diagram {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 1.5rem 0;
+    }
+
+    .loop-step {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg-tertiary);
+      padding: 1rem 1.5rem;
+      border-radius: 6px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .loop-step-num {
+      width: 28px;
+      height: 28px;
+      background: var(--accent-cyan);
+      color: var(--bg-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .loop-step-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100px;
+    }
+
+    .loop-step p {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .loop-connector {
+      color: var(--accent-cyan);
+      font-size: 1.25rem;
+      margin: 0.25rem 0;
+    }
+
+    /* Pattern Grid */
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .pattern-item {
+      background: var(--bg-tertiary);
+      padding: 1rem;
+      border-radius: 6px;
+    }
+
+    .pattern-item h4 {
+      color: var(--accent-cyan);
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pattern-item p {
+      font-size: 0.8125rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pattern-item code {
+      display: block;
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+
+    /* Quick Steps */
+    .quick-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .quick-step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .quick-step-num {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: var(--bg-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .quick-step-content h4 {
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+      font-size: 0.9375rem;
+    }
+
+    .quick-step-content p {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    /* API Table */
+    .api-section {
+      margin: 1.5rem 0;
+    }
+
+    .api-section h4 {
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .api-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .api-table td {
+      padding: 0.625rem 1rem;
+      border: 1px solid var(--border-color);
+      font-size: 0.8125rem;
+    }
+
+    .api-table td:first-child {
+      width: 45%;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+      background: var(--bg-tertiary);
+    }
+
+    /* Facet Guide */
+    .facet-guide {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .facet-guide-item {
+      background: var(--bg-tertiary);
+      padding: 1rem;
+      border-radius: 6px;
+    }
+
+    .facet-type-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      background: rgba(0, 212, 255, 0.2);
+      color: var(--accent-cyan);
+      border-radius: 4px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .facet-guide-item p {
+      font-size: 0.8125rem;
+      margin: 0;
+      color: var(--text-muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .level-guide {
+        flex-direction: column;
+      }
+
+      .level-arrow {
+        transform: rotate(90deg);
+      }
+
+      .level-guide-item {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      <div>
+        <div class="logo-text">Panya</div>
+        <div class="logo-subtitle">Self-Learning Ontology</div>
+      </div>
+    </div>
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <nav class="sidebar">
+      <div class="nav-section">
+        <div class="nav-section-title">Overview</div>
+        <div class="nav-item active" data-section="dashboard">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          Dashboard
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Knowledge</div>
+        <div class="nav-item" data-section="levels">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20V10"></path>
+            <path d="M18 20V4"></path>
+            <path d="M6 20v-4"></path>
+          </svg>
+          Knowledge Levels
+        </div>
+        <div class="nav-item" data-section="patterns">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"></path>
+          </svg>
+          Patterns
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item" data-section="learning">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 11-6.219-8.56"></path>
+            <polyline points="21 3 21 9 15 9"></polyline>
+          </svg>
+          Learning Loop
+        </div>
+        <div class="nav-item" data-section="observe">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+          Add Observation
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Identity</div>
+        <div class="nav-item" data-section="identity">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          Robin Identity
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Help</div>
+        <div class="nav-item" data-section="guide">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          User Guide
+        </div>
+      </div>
+    </nav>
+
+    <div class="content">
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="section active">
+        <h1 class="page-title">Ontology Dashboard</h1>
+        <p class="page-subtitle">Real-time overview of Panya's self-learning knowledge system</p>
+
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Total Knowledge</div>
+            </div>
+            <div class="card-value cyan" id="totalKnowledge">-</div>
+            <div class="card-change">Documents in system</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Core Knowledge (L4)</div>
+            </div>
+            <div class="card-value green" id="coreKnowledge">-</div>
+            <div class="card-change">Expert-level, never decays</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Patterns Detected</div>
+            </div>
+            <div class="card-value yellow" id="patternsDetected">-</div>
+            <div class="card-change">Awaiting validation</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Learning Cycles</div>
+            </div>
+            <div class="card-value purple" id="learningCycles">-</div>
+            <div class="card-change">Total runs completed</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Knowledge Level Distribution</div>
+          </div>
+          <div class="level-distribution" id="levelDistribution">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Knowledge Levels Section -->
+      <section id="levels" class="section">
+        <h1 class="page-title">Knowledge Levels</h1>
+        <p class="page-subtitle">4-level hierarchy: L1 Raw → L2 Extracted → L3 Synthesized → L4 Core</p>
+
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-title">L1 Raw</div>
+            <div class="card-value" style="color: var(--level-1)" id="l1Count">-</div>
+            <div class="card-change">Fresh observations, 7-day decay</div>
+          </div>
+          <div class="card">
+            <div class="card-title">L2 Extracted</div>
+            <div class="card-value" style="color: var(--level-2)" id="l2Count">-</div>
+            <div class="card-change">Entities extracted, 30-day decay</div>
+          </div>
+          <div class="card">
+            <div class="card-title">L3 Synthesized</div>
+            <div class="card-value" style="color: var(--level-3)" id="l3Count">-</div>
+            <div class="card-change">Merged knowledge, 90-day decay</div>
+          </div>
+          <div class="card">
+            <div class="card-title">L4 Core</div>
+            <div class="card-value" style="color: var(--level-4)" id="l4Count">-</div>
+            <div class="card-change">Expert knowledge, never decays</div>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-secondary" onclick="refreshLevels()">Refresh</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">Level Statistics</div>
+          <div class="panel-body" id="levelStatsDetail">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Patterns Section -->
+      <section id="patterns" class="section">
+        <h1 class="page-title">Pattern Detection</h1>
+        <p class="page-subtitle">Co-occurrence, temporal, semantic, contradiction, and evolution patterns</p>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="detectPatterns()">Detect Patterns</button>
+          <button class="btn btn-secondary" onclick="refreshPatterns()">Refresh</button>
+        </div>
+
+        <div class="table-container">
+          <div class="table-header">
+            <div class="table-title">Detected Patterns</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Confidence</th>
+                <th>Status</th>
+                <th>Description</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="patternsTable">
+              <tr><td colspan="6" class="empty-state">No patterns detected yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Learning Loop Section -->
+      <section id="learning" class="section">
+        <h1 class="page-title">Learning Loop</h1>
+        <p class="page-subtitle">OBSERVE → EXTRACT → SYNTHESIZE → PROMOTE → CORRECT → DECAY</p>
+
+        <div class="loop-status" id="loopStatus">
+          <div class="loop-indicator" id="loopIndicator">⟳</div>
+          <div class="loop-info">
+            <div class="loop-title" id="loopStage">Idle</div>
+            <div class="loop-subtitle" id="loopDetails">Ready to run</div>
+          </div>
+          <button class="btn btn-primary" id="runLoopBtn" onclick="runLoop()">Run Loop</button>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-secondary" id="startAutoBtn" onclick="startAutoLoop()">Start Auto Loop</button>
+          <button class="btn btn-danger" id="stopAutoBtn" onclick="stopAutoLoop()" disabled>Stop Auto Loop</button>
+        </div>
+
+        <div class="panel" id="loopResultPanel" style="display: none;">
+          <div class="panel-header">Last Run Results</div>
+          <div class="panel-body" id="loopResults"></div>
+        </div>
+      </section>
+
+      <!-- Add Observation Section -->
+      <section id="observe" class="section">
+        <h1 class="page-title">Add Observation</h1>
+        <p class="page-subtitle">Feed new knowledge into the learning system</p>
+
+        <div class="card">
+          <form onsubmit="addObservation(event)">
+            <div class="form-group">
+              <label class="form-label">Observation Type</label>
+              <select class="form-input" id="obsType">
+                <option value="conversation">Conversation</option>
+                <option value="feedback">Feedback</option>
+                <option value="external">External</option>
+                <option value="file_change">File Change</option>
+                <option value="search">Search</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Content</label>
+              <textarea class="form-textarea" id="obsContent" placeholder="Enter the observation content..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Observation</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Identity Section -->
+      <section id="identity" class="section">
+        <h1 class="page-title">Robin Identity</h1>
+        <p class="page-subtitle">Protected personality, voice, values, and relationship facets</p>
+
+        <div class="action-bar">
+          <button class="btn btn-secondary" onclick="refreshIdentity()">Refresh</button>
+        </div>
+
+        <div id="identityFacets">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </section>
+
+      <!-- Guide Section -->
+      <section id="guide" class="section">
+        <h1 class="page-title">User Guide</h1>
+        <p class="page-subtitle">Learn how Panya's self-learning ontology system works</p>
+
+        <div class="guide-container">
+          <!-- Overview -->
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <div class="guide-icon">🧠</div>
+              <h2>What is Panya Ontology?</h2>
+            </div>
+            <div class="guide-card-body">
+              <p>Panya is a <strong>self-learning knowledge system</strong> that automatically:</p>
+              <ul>
+                <li>Observes and captures information from conversations</li>
+                <li>Extracts entities and relationships</li>
+                <li>Detects patterns across your knowledge</li>
+                <li>Promotes high-quality knowledge to expert level</li>
+                <li>Decays unused information over time</li>
+              </ul>
+              <p class="guide-highlight">Philosophy: <em>"Version, Don't Delete"</em> — Nothing is ever deleted, only superseded.</p>
+            </div>
+          </div>
+
+          <!-- Knowledge Levels -->
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <div class="guide-icon">📊</div>
+              <h2>The 4 Knowledge Levels</h2>
+            </div>
+            <div class="guide-card-body">
+              <div class="level-guide">
+                <div class="level-guide-item">
+                  <div class="level-badge l1">L1</div>
+                  <div class="level-guide-content">
+                    <h4>Raw</h4>
+                    <p>Fresh observations, unprocessed data</p>
+                    <span class="level-meta">Decay: 7 days half-life</span>
+                  </div>
+                </div>
+                <div class="level-arrow">→</div>
+                <div class="level-guide-item">
+                  <div class="level-badge l2">L2</div>
+                  <div class="level-guide-content">
+                    <h4>Extracted</h4>
+                    <p>Entities identified, initial understanding</p>
+                    <span class="level-meta">Decay: 30 days half-life</span>
+                  </div>
+                </div>
+                <div class="level-arrow">→</div>
+                <div class="level-guide-item">
+                  <div class="level-badge l3">L3</div>
+                  <div class="level-guide-content">
+                    <h4>Synthesized</h4>
+                    <p>Multiple sources merged, patterns applied</p>
+                    <span class="level-meta">Decay: 90 days half-life</span>
+                  </div>
+                </div>
+                <div class="level-arrow">→</div>
+                <div class="level-guide-item">
+                  <div class="level-badge l4">L4</div>
+                  <div class="level-guide-content">
+                    <h4>Core</h4>
+                    <p>Expert knowledge, validated truth</p>
+                    <span class="level-meta">Never decays</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-box">
+                <h4>How to Reach L4 (Expert Level)</h4>
+                <ol>
+                  <li><strong>Add observations</strong> — Feed knowledge through conversations or manual input</li>
+                  <li><strong>Run learning loop</strong> — Process and extract entities</li>
+                  <li><strong>Use the knowledge</strong> — Access it frequently (usage count matters)</li>
+                  <li><strong>Validate patterns</strong> — Confirm detected patterns are correct</li>
+                  <li><strong>Wait for promotion</strong> — High confidence + high usage = automatic promotion</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- Learning Loop -->
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <div class="guide-icon">🔄</div>
+              <h2>The Learning Loop</h2>
+            </div>
+            <div class="guide-card-body">
+              <div class="loop-diagram">
+                <div class="loop-step">
+                  <div class="loop-step-num">1</div>
+                  <div class="loop-step-name">OBSERVE</div>
+                  <p>Collect unprocessed observations</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">2</div>
+                  <div class="loop-step-name">EXTRACT</div>
+                  <p>Identify entities and relationships</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">3</div>
+                  <div class="loop-step-name">SYNTHESIZE</div>
+                  <p>Detect patterns, merge related docs</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">4</div>
+                  <div class="loop-step-name">PROMOTE</div>
+                  <p>Move high-confidence knowledge up</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">5</div>
+                  <div class="loop-step-name">CORRECT</div>
+                  <p>Resolve conflicts and contradictions</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">6</div>
+                  <div class="loop-step-name">DECAY</div>
+                  <p>Reduce relevance of unused knowledge</p>
+                </div>
+              </div>
+
+              <div class="guide-box">
+                <h4>Running the Loop</h4>
+                <ul>
+                  <li><strong>Manual:</strong> Click "Run Loop" button for one cycle</li>
+                  <li><strong>Auto:</strong> Enable auto-loop to run every hour</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pattern Detection -->
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <div class="guide-icon">🔍</div>
+              <h2>Pattern Types</h2>
+            </div>
+            <div class="guide-card-body">
+              <div class="pattern-grid">
+                <div class="pattern-item">
+                  <h4>Co-occurrence</h4>
+                  <p>Same entities appearing together frequently</p>
+                  <code>e.g., "TypeScript" + "React" appear together 10x</code>
+                </div>
+                <div class="pattern-item">
+                  <h4>Temporal</h4>
+                  <p>Time-based patterns (daily, weekly cycles)</p>
+                  <code>e.g., High activity on Mondays</code>
+                </div>
+                <div class="pattern-item">
+                  <h4>Semantic</h4>
+                  <p>Similar content/meaning clusters</p>
+                  <code>e.g., 5 docs about "API design"</code>
+                </div>
+                <div class="pattern-item">
+                  <h4>Contradiction</h4>
+                  <p>Conflicting information detected</p>
+                  <code>e.g., "Use REST" vs "Use GraphQL"</code>
+                </div>
+                <div class="pattern-item">
+                  <h4>Evolution</h4>
+                  <p>How knowledge changed over time</p>
+                  <code>e.g., Understanding grew from basic to advanced</code>
+                </div>
+              </div>
+
+              <div class="guide-box">
+                <h4>Validating Patterns</h4>
+                <p>When a pattern is detected, you can:</p>
+                <ul>
+                  <li><strong>✓ Validate:</strong> Confirm it's a real pattern → enables synthesis</li>
+                  <li><strong>✕ Reject:</strong> Mark as false positive → ignored in future</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Start -->
+          <div class="guide-card highlight">
+            <div class="guide-card-header">
+              <div class="guide-icon">🚀</div>
+              <h2>Quick Start Guide</h2>
+            </div>
+            <div class="guide-card-body">
+              <div class="quick-steps">
+                <div class="quick-step">
+                  <div class="quick-step-num">1</div>
+                  <div class="quick-step-content">
+                    <h4>Add Your First Observation</h4>
+                    <p>Go to <strong>Add Observation</strong> → Enter some knowledge → Click "Add"</p>
+                  </div>
+                </div>
+                <div class="quick-step">
+                  <div class="quick-step-num">2</div>
+                  <div class="quick-step-content">
+                    <h4>Run the Learning Loop</h4>
+                    <p>Go to <strong>Learning Loop</strong> → Click "Run Loop"</p>
+                  </div>
+                </div>
+                <div class="quick-step">
+                  <div class="quick-step-num">3</div>
+                  <div class="quick-step-content">
+                    <h4>Check the Dashboard</h4>
+                    <p>See your knowledge appear in L1 (Raw)</p>
+                  </div>
+                </div>
+                <div class="quick-step">
+                  <div class="quick-step-num">4</div>
+                  <div class="quick-step-content">
+                    <h4>Add More Knowledge</h4>
+                    <p>Keep adding related observations to build patterns</p>
+                  </div>
+                </div>
+                <div class="quick-step">
+                  <div class="quick-step-num">5</div>
+                  <div class="quick-step-content">
+                    <h4>Detect Patterns</h4>
+                    <p>Go to <strong>Patterns</strong> → Click "Detect Patterns"</p>
+                  </div>
+                </div>
+                <div class="quick-step">
+                  <div class="quick-step-num">6</div>
+                  <div class="quick-step-content">
+                    <h4>Validate & Watch It Grow</h4>
+                    <p>Validate correct patterns → Knowledge promotes to higher levels</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Reference -->
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <div class="guide-icon">⚡</div>
+              <h2>API Reference</h2>
+            </div>
+            <div class="guide-card-body">
+              <p>Panya exposes a REST API on <code>http://localhost:3100</code></p>
+
+              <div class="api-section">
+                <h4>Core Endpoints</h4>
+                <table class="api-table">
+                  <tr><td><code>GET /health</code></td><td>Health check</td></tr>
+                  <tr><td><code>GET /stats</code></td><td>Brain statistics</td></tr>
+                  <tr><td><code>GET /search?q=query</code></td><td>Search knowledge</td></tr>
+                  <tr><td><code>POST /learn</code></td><td>Extract learnings from messages</td></tr>
+                </table>
+              </div>
+
+              <div class="api-section">
+                <h4>Ontology Endpoints</h4>
+                <table class="api-table">
+                  <tr><td><code>GET /ontology/stats</code></td><td>Full ontology statistics</td></tr>
+                  <tr><td><code>GET /ontology/levels</code></td><td>Knowledge level stats</td></tr>
+                  <tr><td><code>POST /ontology/observations</code></td><td>Add observation</td></tr>
+                  <tr><td><code>POST /ontology/loop/run</code></td><td>Run learning loop</td></tr>
+                  <tr><td><code>GET /ontology/patterns</code></td><td>List patterns</td></tr>
+                  <tr><td><code>POST /ontology/patterns/detect</code></td><td>Detect patterns</td></tr>
+                  <tr><td><code>GET /ontology/identity</code></td><td>Get Robin identity</td></tr>
+                </table>
+              </div>
+
+              <div class="guide-box">
+                <h4>Example: Add Observation via API</h4>
+                <pre><code>curl -X POST http://localhost:3100/ontology/observations \
+  -H "Content-Type: application/json" \
+  -d '{"type": "conversation", "content": "TypeScript is great for large codebases"}'</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Robin Identity -->
+          <div class="guide-card">
+            <div class="guide-card-header">
+              <div class="guide-icon">💜</div>
+              <h2>Robin's Identity System</h2>
+            </div>
+            <div class="guide-card-body">
+              <p>Robin has <strong>protected identity facets</strong> that define her personality:</p>
+
+              <div class="facet-guide">
+                <div class="facet-guide-item">
+                  <span class="facet-type-badge">personality</span>
+                  <p>Core character traits, first principles thinking</p>
+                </div>
+                <div class="facet-guide-item">
+                  <span class="facet-type-badge">voice</span>
+                  <p>Language style, pronouns, tone</p>
+                </div>
+                <div class="facet-guide-item">
+                  <span class="facet-type-badge">values</span>
+                  <p>Principles and beliefs</p>
+                </div>
+                <div class="facet-guide-item">
+                  <span class="facet-type-badge">relationship</span>
+                  <p>Memory of interactions, milestones, inside jokes</p>
+                </div>
+              </div>
+
+              <div class="guide-box warning">
+                <h4>🔒 Locked Facets</h4>
+                <p>Core identity facets are <strong>locked</strong> and cannot be auto-modified. Changes require human validation to protect Robin's personality.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const API_BASE = 'http://localhost:3100';
+
+    // Navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+
+        const section = item.dataset.section;
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(section).classList.add('active');
+
+        // Load section data
+        loadSectionData(section);
+      });
+    });
+
+    function loadSectionData(section) {
+      switch(section) {
+        case 'dashboard': loadDashboard(); break;
+        case 'levels': refreshLevels(); break;
+        case 'patterns': refreshPatterns(); break;
+        case 'learning': refreshLoopStatus(); break;
+        case 'identity': refreshIdentity(); break;
+      }
+    }
+
+    // API Helpers
+    async function api(endpoint, options = {}) {
+      try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          ...options,
+          headers: { 'Content-Type': 'application/json', ...options.headers }
+        });
+        return await res.json();
+      } catch (e) {
+        console.error('API Error:', e);
+        showToast('Connection error', 'error');
+        return null;
+      }
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>${type === 'success' ? '✓' : '✕'}</span> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Dashboard
+    async function loadDashboard() {
+      const stats = await api('/ontology/stats');
+      if (!stats) return;
+
+      document.getElementById('totalKnowledge').textContent = stats.knowledge.total;
+      document.getElementById('coreKnowledge').textContent = stats.knowledge.distribution['L4 Core'];
+      document.getElementById('patternsDetected').textContent = stats.ontology.patterns.detected;
+      document.getElementById('learningCycles').textContent = stats.learningLoop.cycleCount;
+
+      // Level distribution
+      const total = stats.knowledge.total || 1;
+      const dist = stats.knowledge.distribution;
+      document.getElementById('levelDistribution').innerHTML = `
+        <div class="level-bar">
+          <div class="level-label">L1 Raw</div>
+          <div class="level-track"><div class="level-fill l1" style="width: ${(dist['L1 Raw'] / total) * 100}%"></div></div>
+          <div class="level-count">${dist['L1 Raw']}</div>
+        </div>
+        <div class="level-bar">
+          <div class="level-label">L2 Extracted</div>
+          <div class="level-track"><div class="level-fill l2" style="width: ${(dist['L2 Extracted'] / total) * 100}%"></div></div>
+          <div class="level-count">${dist['L2 Extracted']}</div>
+        </div>
+        <div class="level-bar">
+          <div class="level-label">L3 Synthesized</div>
+          <div class="level-track"><div class="level-fill l3" style="width: ${(dist['L3 Synthesized'] / total) * 100}%"></div></div>
+          <div class="level-count">${dist['L3 Synthesized']}</div>
+        </div>
+        <div class="level-bar">
+          <div class="level-label">L4 Core</div>
+          <div class="level-track"><div class="level-fill l4" style="width: ${(dist['L4 Core'] / total) * 100}%"></div></div>
+          <div class="level-count">${dist['L4 Core']}</div>
+        </div>
+      `;
+
+      // Update status
+      document.getElementById('statusDot').classList.remove('error');
+      document.getElementById('statusText').textContent = 'Connected';
+    }
+
+    // Levels
+    async function refreshLevels() {
+      const data = await api('/ontology/levels');
+      if (!data) return;
+
+      document.getElementById('l1Count').textContent = data.summary.distribution['L1 Raw'];
+      document.getElementById('l2Count').textContent = data.summary.distribution['L2 Extracted'];
+      document.getElementById('l3Count').textContent = data.summary.distribution['L3 Synthesized'];
+      document.getElementById('l4Count').textContent = data.summary.distribution['L4 Core'];
+
+      document.getElementById('levelStatsDetail').innerHTML = `
+        <table style="width: 100%">
+          <tr><th>Metric</th><th>Value</th></tr>
+          <tr><td>Total Documents</td><td>${data.summary.total}</td></tr>
+          <tr><td>Average Confidence</td><td>${(data.summary.avgConfidence * 100).toFixed(1)}%</td></tr>
+          <tr><td>Ready for Promotion</td><td>${data.summary.readyForPromotion}</td></tr>
+        </table>
+      `;
+    }
+
+    // Patterns
+    async function refreshPatterns() {
+      const data = await api('/ontology/patterns');
+      if (!data) return;
+
+      if (data.count === 0) {
+        document.getElementById('patternsTable').innerHTML = '<tr><td colspan="6" class="empty-state">No patterns detected yet</td></tr>';
+        return;
+      }
+
+      document.getElementById('patternsTable').innerHTML = data.patterns.map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td>${p.type}</td>
+          <td>${(p.confidence * 100).toFixed(0)}%</td>
+          <td><span class="badge ${p.status}">${p.status}</span></td>
+          <td>${p.description || '-'}</td>
+          <td>
+            ${p.status === 'detected' ? `
+              <button class="btn btn-secondary" onclick="validatePattern(${p.id}, true)" style="padding: 0.25rem 0.5rem; font-size: 0.75rem">✓</button>
+              <button class="btn btn-danger" onclick="validatePattern(${p.id}, false)" style="padding: 0.25rem 0.5rem; font-size: 0.75rem">✕</button>
+            ` : '-'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function detectPatterns() {
+      showToast('Detecting patterns...');
+      const data = await api('/ontology/patterns/detect', { method: 'POST', body: '{}' });
+      if (data) {
+        showToast(`Detected ${data.patternsDetected} patterns`);
+        refreshPatterns();
+      }
+    }
+
+    async function validatePattern(id, valid) {
+      const data = await api('/ontology/patterns/validate', {
+        method: 'POST',
+        body: JSON.stringify({ patternId: id, valid })
+      });
+      if (data) {
+        showToast(`Pattern ${valid ? 'validated' : 'rejected'}`);
+        refreshPatterns();
+      }
+    }
+
+    // Learning Loop
+    async function refreshLoopStatus() {
+      const data = await api('/ontology/loop/status');
+      if (!data) return;
+
+      const isRunning = data.loop.isRunning || data.autoLoop.running;
+      document.getElementById('loopIndicator').classList.toggle('running', isRunning);
+      document.getElementById('loopStage').textContent = data.loop.stage.charAt(0).toUpperCase() + data.loop.stage.slice(1);
+      document.getElementById('loopDetails').textContent = `Cycles: ${data.loop.cycleCount} | Auto: ${data.autoLoop.running ? 'ON' : 'OFF'}`;
+
+      document.getElementById('runLoopBtn').disabled = isRunning;
+      document.getElementById('startAutoBtn').disabled = data.autoLoop.running;
+      document.getElementById('stopAutoBtn').disabled = !data.autoLoop.running;
+    }
+
+    async function runLoop() {
+      document.getElementById('runLoopBtn').disabled = true;
+      document.getElementById('loopIndicator').classList.add('running');
+      showToast('Running learning loop...');
+
+      const data = await api('/ontology/loop/run', { method: 'POST' });
+      if (data) {
+        showToast(`Loop completed in ${data.durationMs}ms`);
+        document.getElementById('loopResultPanel').style.display = 'block';
+        document.getElementById('loopResults').innerHTML = `
+          <table style="width: 100%">
+            <tr><th>Stage</th><th>Result</th></tr>
+            <tr><td>Observe</td><td>Processed: ${data.stages.observe.processed}, Created: ${data.stages.observe.created}</td></tr>
+            <tr><td>Extract</td><td>Entities: ${data.stages.extract.entities}, Insights: ${data.stages.extract.insights}</td></tr>
+            <tr><td>Synthesize</td><td>Patterns: ${data.stages.synthesize.patterns}, Merged: ${data.stages.synthesize.merged}</td></tr>
+            <tr><td>Promote</td><td>Promoted: ${data.stages.promote.promoted}, Failed: ${data.stages.promote.failed}</td></tr>
+            <tr><td>Correct</td><td>Conflicts: ${data.stages.correct.conflicts}, Resolved: ${data.stages.correct.resolved}</td></tr>
+            <tr><td>Decay</td><td>Processed: ${data.stages.decay.processed}, Decayed: ${data.stages.decay.decayed}</td></tr>
+          </table>
+        `;
+        loadDashboard();
+      }
+
+      refreshLoopStatus();
+    }
+
+    async function startAutoLoop() {
+      const data = await api('/ontology/loop/start', { method: 'POST' });
+      if (data && data.success) {
+        showToast('Auto loop started');
+        refreshLoopStatus();
+      }
+    }
+
+    async function stopAutoLoop() {
+      const data = await api('/ontology/loop/stop', { method: 'POST' });
+      if (data && data.success) {
+        showToast('Auto loop stopped');
+        refreshLoopStatus();
+      }
+    }
+
+    // Observations
+    async function addObservation(e) {
+      e.preventDefault();
+      const type = document.getElementById('obsType').value;
+      const content = document.getElementById('obsContent').value;
+
+      if (!content.trim()) {
+        showToast('Content is required', 'error');
+        return;
+      }
+
+      const data = await api('/ontology/observations', {
+        method: 'POST',
+        body: JSON.stringify({ type, content })
+      });
+
+      if (data && data.success) {
+        showToast(`Observation added (ID: ${data.observationId})`);
+        document.getElementById('obsContent').value = '';
+      }
+    }
+
+    // Identity
+    async function refreshIdentity() {
+      const data = await api('/ontology/identity');
+      if (!data) return;
+
+      const facetsByType = {};
+      data.facets.forEach(f => {
+        if (!facetsByType[f.type]) facetsByType[f.type] = [];
+        facetsByType[f.type].push(f);
+      });
+
+      let html = '';
+      for (const [type, facets] of Object.entries(facetsByType)) {
+        html += `<h3 style="margin: 1.5rem 0 1rem; text-transform: capitalize; color: var(--accent-cyan)">${type}</h3>`;
+        facets.forEach(f => {
+          html += `
+            <div class="facet-card">
+              <div class="facet-header">
+                <div class="facet-name">${f.name}</div>
+                ${f.locked ? '<span class="locked-badge">🔒 Locked</span>' : ''}
+              </div>
+              <div class="facet-content">${f.contentPreview}</div>
+            </div>
+          `;
+        });
+      }
+
+      document.getElementById('identityFacets').innerHTML = html || '<div class="empty-state">No identity facets found</div>';
+    }
+
+    // Initial load
+    loadDashboard();
+
+    // Check connection
+    async function checkConnection() {
+      const data = await api('/health');
+      if (data) {
+        document.getElementById('statusDot').classList.remove('error');
+        document.getElementById('statusText').textContent = 'Connected';
+      } else {
+        document.getElementById('statusDot').classList.add('error');
+        document.getElementById('statusText').textContent = 'Disconnected';
+      }
+    }
+
+    checkConnection();
+    setInterval(checkConnection, 30000);
+  </script>
+</body>
+</html>

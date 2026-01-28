@@ -31,7 +31,10 @@
     "mcp": "bun run src/server.ts",
     "mcp:dev": "bun --watch src/server.ts",
     "http": "bun run src/http-server.ts",
-    "http:dev": "bun --watch src/http-server.ts"
+    "http:dev": "bun --watch src/http-server.ts",
+    "web": "bun run web/serve.ts",
+    "web:dev": "bun --watch web/serve.ts",
+    "dashboard": "bun run src/http-server.ts & bun run web/serve.ts"
   },
   "bin": {
     "panya-mcp": "./src/server.ts",
