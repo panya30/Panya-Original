@@ -157,18 +157,51 @@ export class KnowledgeConnectorSkill {
       }
     }
 
-    // 3. Same type (weaker connection)
-    if (doc1.type === doc2.type) {
+    // 3. Text similarity (shared significant words)
+    const sharedWords = this.findSharedWords(doc1.content || '', doc2.content || '');
+    if (sharedWords.length >= 2) {
+      const strength = Math.min(1, sharedWords.length * 0.15);
+      if (strength >= this.config.minConnectionStrength) {
+        connections.push({
+          sourceId: doc1.id,
+          targetId: doc2.id,
+          type: 'text_similarity',
+          strength,
+          reason: `Shared terms: ${sharedWords.slice(0, 5).join(', ')}`,
+        });
+      }
+    }
+
+    // 4. Same type (weaker connection)
+    if (doc1.type === doc2.type && connections.length === 0) {
       connections.push({
         sourceId: doc1.id,
         targetId: doc2.id,
-        type: 'concept_shared',
-        strength: 0.2,
+        type: 'same_type',
+        strength: 0.25,
         reason: `Same document type: ${doc1.type}`,
       });
     }
 
     return connections;
+  }
+
+  private findSharedWords(text1: string, text2: string): string[] {
+    const stopWords = new Set(['the', 'is', 'a', 'an', 'and', 'or', 'for', 'to', 'in', 'of', 'with', 'are', 'that', 'this', 'it', 'be', 'as', 'on', 'by', 'at', 'from']);
+
+    const extractWords = (text: string): Set<string> => {
+      return new Set(
+        text.toLowerCase()
+          .replace(/[^\w\s]/g, '')
+          .split(/\s+/)
+          .filter(w => w.length > 3 && !stopWords.has(w))
+      );
+    };
+
+    const words1 = extractWords(text1);
+    const words2 = extractWords(text2);
+
+    return [...words1].filter(w => words2.has(w));
   }
 
   private findSharedConcepts(concepts1: string[], concepts2: string[]): string[] {
@@ -398,8 +431,6 @@ export class KnowledgeConnectorSkill {
   // ==========================================================================
 
   private getAllDocuments(db: PanyaDatabase): Document[] {
-    // Search with empty query to get all docs (or implement a list method)
-    // For now, we use a workaround
-    return db.searchFTS('*', 1000);
+    return db.listAllDocuments(500);
   }
 }

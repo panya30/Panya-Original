@@ -720,6 +720,22 @@ export class PanyaDatabase {
   // Search Operations
   // ==========================================================================
 
+  /**
+   * List all documents (for graph building)
+   */
+  listAllDocuments(limit: number = 500): Document[] {
+    const results = this.db.query<any, []>(`
+      SELECT * FROM documents
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `).all();
+
+    return results.map(r => ({
+      ...r,
+      concepts: JSON.parse(r.concepts || '[]'),
+    }));
+  }
+
   searchFTS(query: string, limit: number = 10): Document[] {
     const keywords = query
       .toLowerCase()
