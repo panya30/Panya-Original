@@ -8,25 +8,25 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0a0a0a;
-      --bg-secondary: #111111;
-      --bg-tertiary: #1a1a1a;
-      --bg-card: #141414;
-      --border-color: #2a2a2a;
-      --border-hover: #3a3a3a;
-      --text-primary: #ffffff;
-      --text-secondary: #a0a0a0;
-      --text-muted: #666666;
-      --accent-cyan: #00d4ff;
-      --accent-blue: #0095ff;
-      --accent-green: #00ff88;
-      --accent-yellow: #ffcc00;
-      --accent-red: #ff4444;
-      --accent-purple: #aa66ff;
-      --level-1: #ff6b6b;
-      --level-2: #ffa94d;
-      --level-3: #69db7c;
-      --level-4: #00d4ff;
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f8f8;
+      --bg-tertiary: #f0f0f0;
+      --bg-card: #ffffff;
+      --border-color: #e0e0e0;
+      --border-hover: #d0d0d0;
+      --text-primary: #2d2d2d;
+      --text-secondary: #5a5a5a;
+      --text-muted: #8a8a8a;
+      --accent-primary: #8b1538;
+      --accent-light: #a82050;
+      --accent-green: #2e7d32;
+      --accent-yellow: #c77700;
+      --accent-red: #c62828;
+      --accent-purple: #6a1b9a;
+      --level-1: #c62828;
+      --level-2: #c77700;
+      --level-3: #2e7d32;
+      --level-4: #8b1538;
     }
 
     * {
@@ -45,7 +45,7 @@
 
     /* Header */
     .header {
-      background: var(--bg-secondary);
+      background: var(--bg-card);
       border-bottom: 1px solid var(--border-color);
       padding: 1rem 2rem;
       display: flex;
@@ -54,6 +54,7 @@
       position: sticky;
       top: 0;
       z-index: 100;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .logo {
@@ -65,13 +66,14 @@
     .logo-icon {
       width: 32px;
       height: 32px;
-      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-light));
       border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
       font-size: 14px;
+      color: #ffffff;
     }
 
     .logo-text {
@@ -104,6 +106,10 @@
 
     .status-dot.error {
       background: var(--accent-red);
+    }
+
+    .status-dot.connected {
+      background: var(--accent-green);
     }
 
     @keyframes pulse {
@@ -157,9 +163,9 @@
     }
 
     .nav-item.active {
-      background: rgba(0, 212, 255, 0.1);
-      color: var(--accent-cyan);
-      border: 1px solid rgba(0, 212, 255, 0.2);
+      background: rgba(139, 21, 56, 0.1);
+      color: var(--accent-primary);
+      border: 1px solid rgba(139, 21, 56, 0.2);
     }
 
     .nav-item-icon {
@@ -199,11 +205,13 @@
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 1.5rem;
-      transition: border-color 0.15s ease;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .card:hover {
       border-color: var(--border-hover);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
     .card-header {
@@ -228,7 +236,7 @@
       margin-top: 0.5rem;
     }
 
-    .card-value.cyan { color: var(--accent-cyan); }
+    .card-value.cyan { color: var(--accent-primary); }
     .card-value.green { color: var(--accent-green); }
     .card-value.yellow { color: var(--accent-yellow); }
     .card-value.purple { color: var(--accent-purple); }
@@ -319,7 +327,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-muted);
-      background: var(--bg-secondary);
+      background: var(--bg-tertiary);
       border-bottom: 1px solid var(--border-color);
     }
 
@@ -349,15 +357,15 @@
       letter-spacing: 0.5px;
     }
 
-    .badge.l1 { background: rgba(255, 107, 107, 0.2); color: var(--level-1); }
-    .badge.l2 { background: rgba(255, 169, 77, 0.2); color: var(--level-2); }
-    .badge.l3 { background: rgba(105, 219, 124, 0.2); color: var(--level-3); }
-    .badge.l4 { background: rgba(0, 212, 255, 0.2); color: var(--level-4); }
+    .badge.l1 { background: rgba(198, 40, 40, 0.15); color: var(--level-1); }
+    .badge.l2 { background: rgba(199, 119, 0, 0.15); color: var(--level-2); }
+    .badge.l3 { background: rgba(46, 125, 50, 0.15); color: var(--level-3); }
+    .badge.l4 { background: rgba(139, 21, 56, 0.15); color: var(--level-4); }
 
-    .badge.detected { background: rgba(255, 204, 0, 0.2); color: var(--accent-yellow); }
-    .badge.validated { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
-    .badge.rejected { background: rgba(255, 68, 68, 0.2); color: var(--accent-red); }
-    .badge.applied { background: rgba(0, 212, 255, 0.2); color: var(--accent-cyan); }
+    .badge.detected { background: rgba(199, 119, 0, 0.15); color: var(--accent-yellow); }
+    .badge.validated { background: rgba(46, 125, 50, 0.15); color: var(--accent-green); }
+    .badge.rejected { background: rgba(198, 40, 40, 0.15); color: var(--accent-red); }
+    .badge.applied { background: rgba(139, 21, 56, 0.15); color: var(--accent-primary); }
 
     /* Buttons */
     .btn {
@@ -375,13 +383,13 @@
     }
 
     .btn-primary {
-      background: var(--accent-cyan);
-      color: var(--bg-primary);
+      background: var(--accent-primary);
+      color: #ffffff;
     }
 
     .btn-primary:hover {
-      background: #00e5ff;
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+      background: var(--accent-light);
+      box-shadow: 0 0 20px rgba(139, 21, 56, 0.3);
     }
 
     .btn-secondary {
@@ -396,13 +404,13 @@
     }
 
     .btn-danger {
-      background: rgba(255, 68, 68, 0.1);
+      background: rgba(198, 40, 40, 0.1);
       color: var(--accent-red);
-      border: 1px solid rgba(255, 68, 68, 0.2);
+      border: 1px solid rgba(198, 40, 40, 0.2);
     }
 
     .btn-danger:hover {
-      background: rgba(255, 68, 68, 0.2);
+      background: rgba(198, 40, 40, 0.2);
     }
 
     .btn:disabled {
@@ -447,7 +455,7 @@
 
     .form-input:focus, .form-textarea:focus {
       outline: none;
-      border-color: var(--accent-cyan);
+      border-color: var(--accent-primary);
     }
 
     .form-textarea {
@@ -479,7 +487,7 @@
     }
 
     .loop-indicator.running {
-      border-color: var(--accent-cyan);
+      border-color: var(--accent-primary);
       animation: spin 2s linear infinite;
     }
 
@@ -545,7 +553,7 @@
     .facet-type {
       font-size: 0.625rem;
       text-transform: uppercase;
-      color: var(--accent-cyan);
+      color: var(--accent-primary);
       font-family: 'JetBrains Mono', monospace;
     }
 
@@ -573,7 +581,7 @@
     }
 
     .toast {
-      background: var(--bg-secondary);
+      background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 1rem 1.5rem;
@@ -582,7 +590,7 @@
       align-items: center;
       gap: 0.75rem;
       animation: slideIn 0.3s ease;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     }
 
     .toast.success { border-color: var(--accent-green); }
@@ -622,7 +630,7 @@
       width: 32px;
       height: 32px;
       border: 3px solid var(--border-color);
-      border-top-color: var(--accent-cyan);
+      border-top-color: var(--accent-primary);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -641,8 +649,8 @@
     }
 
     .guide-card.highlight {
-      border-color: var(--accent-cyan);
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 20px rgba(139, 21, 56, 0.1);
     }
 
     .guide-card-header {
@@ -693,7 +701,7 @@
       border-radius: 4px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.8125rem;
-      color: var(--accent-cyan);
+      color: var(--accent-primary);
     }
 
     .guide-card-body pre {
@@ -711,8 +719,8 @@
     }
 
     .guide-highlight {
-      background: rgba(0, 212, 255, 0.1);
-      border-left: 3px solid var(--accent-cyan);
+      background: rgba(139, 21, 56, 0.08);
+      border-left: 3px solid var(--accent-primary);
       padding: 1rem;
       margin: 1rem 0;
       border-radius: 0 6px 6px 0;
@@ -774,10 +782,10 @@
       flex-shrink: 0;
     }
 
-    .level-badge.l1 { background: rgba(255, 107, 107, 0.2); color: var(--level-1); }
-    .level-badge.l2 { background: rgba(255, 169, 77, 0.2); color: var(--level-2); }
-    .level-badge.l3 { background: rgba(105, 219, 124, 0.2); color: var(--level-3); }
-    .level-badge.l4 { background: rgba(0, 212, 255, 0.2); color: var(--level-4); }
+    .level-badge.l1 { background: rgba(198, 40, 40, 0.15); color: var(--level-1); }
+    .level-badge.l2 { background: rgba(199, 119, 0, 0.15); color: var(--level-2); }
+    .level-badge.l3 { background: rgba(46, 125, 50, 0.15); color: var(--level-3); }
+    .level-badge.l4 { background: rgba(139, 21, 56, 0.15); color: var(--level-4); }
 
     .level-guide-content h4 {
       color: var(--text-primary);
@@ -824,8 +832,8 @@
     .loop-step-num {
       width: 28px;
       height: 28px;
-      background: var(--accent-cyan);
-      color: var(--bg-primary);
+      background: var(--accent-primary);
+      color: #ffffff;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -851,7 +859,7 @@
     }
 
     .loop-connector {
-      color: var(--accent-cyan);
+      color: var(--accent-primary);
       font-size: 1.25rem;
       margin: 0.25rem 0;
     }
@@ -871,7 +879,7 @@
     }
 
     .pattern-item h4 {
-      color: var(--accent-cyan);
+      color: var(--accent-primary);
       font-size: 0.875rem;
       margin-bottom: 0.5rem;
     }
@@ -903,8 +911,8 @@
     .quick-step-num {
       width: 32px;
       height: 32px;
-      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-      color: var(--bg-primary);
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-light));
+      color: #ffffff;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -950,7 +958,7 @@
     .api-table td:first-child {
       width: 45%;
       font-family: 'JetBrains Mono', monospace;
-      color: var(--accent-cyan);
+      color: var(--accent-primary);
       background: var(--bg-tertiary);
     }
 
@@ -971,8 +979,8 @@
     .facet-type-badge {
       display: inline-block;
       padding: 0.25rem 0.5rem;
-      background: rgba(0, 212, 255, 0.2);
-      color: var(--accent-cyan);
+      background: rgba(139, 21, 56, 0.15);
+      color: var(--accent-primary);
       border-radius: 4px;
       font-size: 0.6875rem;
       font-weight: 600;
@@ -1854,7 +1862,7 @@
 
       let html = '';
       for (const [type, facets] of Object.entries(facetsByType)) {
-        html += `<h3 style="margin: 1.5rem 0 1rem; text-transform: capitalize; color: var(--accent-cyan)">${type}</h3>`;
+        html += `<h3 style="margin: 1.5rem 0 1rem; text-transform: capitalize; color: var(--accent-primary)">${type}</h3>`;
         facets.forEach(f => {
           html += `
             <div class="facet-card">
