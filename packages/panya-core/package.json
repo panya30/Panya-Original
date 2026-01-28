@@ -1,0 +1,67 @@
+{
+  "name": "@panya/core",
+  "version": "0.1.0",
+  "description": "Panya Core - Independent AI Brain Library",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./brain": {
+      "import": "./dist/brain/index.js",
+      "types": "./dist/brain/index.d.ts"
+    },
+    "./skills": {
+      "import": "./dist/skills/index.js",
+      "types": "./dist/skills/index.d.ts"
+    },
+    "./identity": {
+      "import": "./dist/identity/index.js",
+      "types": "./dist/identity/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "mcp": "bun run src/server.ts",
+    "mcp:dev": "bun --watch src/server.ts",
+    "http": "bun run src/http-server.ts",
+    "http:dev": "bun --watch src/http-server.ts"
+  },
+  "bin": {
+    "panya-mcp": "./src/server.ts",
+    "panya-http": "./src/http-server.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "better-sqlite3": ">=9.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "author": "Modz (The Architect)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/panya30/Panya-Original"
+  },
+  "keywords": [
+    "panya",
+    "ai",
+    "brain",
+    "memory",
+    "skills",
+    "personal-ai"
+  ]
+}
