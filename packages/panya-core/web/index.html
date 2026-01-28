@@ -1021,6 +1021,153 @@
       display: block;
     }
 
+    /* Knowledge Graph */
+    .graph-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .graph-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+    }
+
+    .graph-toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .graph-toolbar label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .graph-toolbar select, .graph-toolbar input {
+      padding: 0.375rem 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-card);
+      font-size: 0.75rem;
+      color: var(--text-primary);
+    }
+
+    .graph-canvas {
+      width: 100%;
+      height: 600px;
+      background: var(--bg-primary);
+      cursor: grab;
+    }
+
+    .graph-canvas:active {
+      cursor: grabbing;
+    }
+
+    .graph-stats {
+      position: absolute;
+      top: 60px;
+      right: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .graph-stats-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .graph-stats-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .graph-stats-label {
+      color: var(--text-muted);
+    }
+
+    .graph-stats-value {
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .graph-legend {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.6875rem;
+    }
+
+    .graph-legend-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .graph-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .graph-legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .node-tooltip {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-width: 300px;
+      display: none;
+    }
+
+    .node-tooltip.visible {
+      display: block;
+    }
+
+    .node-tooltip-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .node-tooltip-type {
+      font-size: 0.625rem;
+      color: var(--accent-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .node-tooltip-content {
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      line-height: 1.4;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .level-guide {
@@ -1081,6 +1228,16 @@
             <path d="M6 8v8M8 6h8M8 18h8M18 8v8"></path>
           </svg>
           Patterns
+        </div>
+        <div class="nav-item" data-section="graph">
+          <svg class="nav-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="19" cy="6" r="2"></circle>
+            <circle cx="19" cy="18" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <path d="M7 12h3M14 12l3-4.5M14 12l3 4.5"></path>
+          </svg>
+          Knowledge Graph
         </div>
       </div>
 
@@ -1243,6 +1400,78 @@
               <tr><td colspan="6" class="empty-state">No patterns detected yet</td></tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- Knowledge Graph Section -->
+      <section id="graph" class="section">
+        <h1 class="page-title">Knowledge Graph</h1>
+        <p class="page-subtitle">Visual exploration of documents, entities, and their relationships</p>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="loadGraph()">Load Graph</button>
+          <button class="btn btn-secondary" onclick="addTestData()">Add Test Data</button>
+          <button class="btn btn-secondary" onclick="resetGraphView()">Reset View</button>
+        </div>
+
+        <div class="graph-container">
+          <div class="graph-toolbar">
+            <div class="graph-toolbar-group">
+              <label>Filter:</label>
+              <select id="graphFilter" onchange="filterGraph()">
+                <option value="all">All Nodes</option>
+                <option value="document">Documents Only</option>
+                <option value="entity">Entities Only</option>
+              </select>
+            </div>
+            <div class="graph-toolbar-group">
+              <label>Layout:</label>
+              <select id="graphLayout" onchange="changeLayout()">
+                <option value="force">Force-Directed</option>
+                <option value="radial">Radial</option>
+                <option value="hierarchical">Hierarchical</option>
+              </select>
+            </div>
+            <div class="graph-toolbar-group">
+              <label>Strength:</label>
+              <input type="range" id="linkStrength" min="0" max="100" value="50" onchange="updateLinkStrength()">
+            </div>
+          </div>
+          <canvas id="graphCanvas" class="graph-canvas"></canvas>
+          <div class="graph-stats" id="graphStats">
+            <div class="graph-stats-row">
+              <span class="graph-stats-label">Nodes:</span>
+              <span class="graph-stats-value" id="nodeCount">0</span>
+            </div>
+            <div class="graph-stats-row">
+              <span class="graph-stats-label">Edges:</span>
+              <span class="graph-stats-value" id="edgeCount">0</span>
+            </div>
+            <div class="graph-stats-row">
+              <span class="graph-stats-label">Clusters:</span>
+              <span class="graph-stats-value" id="clusterCount">0</span>
+            </div>
+          </div>
+          <div class="graph-legend" id="graphLegend">
+            <div class="graph-legend-title">Node Types</div>
+            <div class="graph-legend-item">
+              <span class="graph-legend-color" style="background: #8b1538"></span>
+              <span>Document</span>
+            </div>
+            <div class="graph-legend-item">
+              <span class="graph-legend-color" style="background: #2e7d32"></span>
+              <span>Entity</span>
+            </div>
+            <div class="graph-legend-item">
+              <span class="graph-legend-color" style="background: #c77700"></span>
+              <span>Concept</span>
+            </div>
+          </div>
+          <div class="node-tooltip" id="nodeTooltip">
+            <div class="node-tooltip-type" id="tooltipType"></div>
+            <div class="node-tooltip-title" id="tooltipTitle"></div>
+            <div class="node-tooltip-content" id="tooltipContent"></div>
+          </div>
         </div>
       </section>
 
@@ -1646,6 +1875,7 @@
         case 'dashboard': loadDashboard(); break;
         case 'levels': refreshLevels(); break;
         case 'patterns': refreshPatterns(); break;
+        case 'graph': initGraph(); loadGraph(); break;
         case 'learning': refreshLoopStatus(); break;
         case 'identity': refreshIdentity(); break;
       }
@@ -1919,6 +2149,434 @@
         document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
       });
     });
+
+    // ========================================
+    // Knowledge Graph
+    // ========================================
+    let graphData = { nodes: [], edges: [] };
+    let graphCanvas, graphCtx;
+    let graphNodes = [];
+    let graphEdges = [];
+    let selectedNode = null;
+    let hoveredNode = null;
+    let isDragging = false;
+    let dragNode = null;
+    let panOffset = { x: 0, y: 0 };
+    let lastMouse = { x: 0, y: 0 };
+    let isPanning = false;
+    let zoom = 1;
+
+    const NODE_COLORS = {
+      document: '#8b1538',
+      learning: '#8b1538',
+      principle: '#6a1b9a',
+      pattern: '#c77700',
+      retro: '#2e7d32',
+      entity: '#2e7d32',
+      concept: '#c77700',
+      default: '#5a5a5a'
+    };
+
+    function initGraph() {
+      graphCanvas = document.getElementById('graphCanvas');
+      if (!graphCanvas) return;
+
+      graphCtx = graphCanvas.getContext('2d');
+      resizeCanvas();
+
+      graphCanvas.addEventListener('mousedown', onGraphMouseDown);
+      graphCanvas.addEventListener('mousemove', onGraphMouseMove);
+      graphCanvas.addEventListener('mouseup', onGraphMouseUp);
+      graphCanvas.addEventListener('mouseleave', onGraphMouseLeave);
+      graphCanvas.addEventListener('wheel', onGraphWheel);
+
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    function resizeCanvas() {
+      if (!graphCanvas) return;
+      const rect = graphCanvas.parentElement.getBoundingClientRect();
+      graphCanvas.width = rect.width;
+      graphCanvas.height = 600;
+      renderGraph();
+    }
+
+    async function loadGraph() {
+      showToast('Loading graph...');
+      const data = await api('/graph');
+      if (!data) return;
+
+      graphData = data;
+      graphNodes = (data.nodes || []).map((n, i) => ({
+        ...n,
+        x: graphCanvas.width / 2 + (Math.random() - 0.5) * 400,
+        y: graphCanvas.height / 2 + (Math.random() - 0.5) * 400,
+        vx: 0,
+        vy: 0,
+        radius: 8 + Math.min(n.connections || 0, 10) * 2
+      }));
+
+      graphEdges = (data.edges || []).map(e => ({
+        source: graphNodes.find(n => n.id === e.sourceId || n.id === e.source),
+        target: graphNodes.find(n => n.id === e.targetId || n.id === e.target),
+        strength: e.strength || 0.5,
+        type: e.type
+      })).filter(e => e.source && e.target);
+
+      document.getElementById('nodeCount').textContent = graphNodes.length;
+      document.getElementById('edgeCount').textContent = graphEdges.length;
+      document.getElementById('clusterCount').textContent = countClusters();
+
+      startSimulation();
+      showToast(`Loaded ${graphNodes.length} nodes, ${graphEdges.length} edges`);
+    }
+
+    async function addTestData() {
+      showToast('Adding test data...');
+
+      // Add some test observations
+      const testData = [
+        { type: 'conversation', content: 'TypeScript is a typed superset of JavaScript that compiles to plain JavaScript.' },
+        { type: 'conversation', content: 'React is a JavaScript library for building user interfaces.' },
+        { type: 'conversation', content: 'Node.js is a JavaScript runtime built on Chrome V8 engine.' },
+        { type: 'feedback', content: 'TypeScript works great with React for type safety.' },
+        { type: 'external', content: 'Next.js is a React framework for production.' },
+        { type: 'conversation', content: 'Bun is a fast JavaScript runtime like Node.js but faster.' },
+        { type: 'feedback', content: 'SQLite is perfect for local-first applications.' },
+        { type: 'conversation', content: 'Knowledge graphs help visualize relationships between concepts.' },
+      ];
+
+      for (const obs of testData) {
+        await api('/ontology/observations', {
+          method: 'POST',
+          body: JSON.stringify(obs)
+        });
+      }
+
+      // Run learning loop to process
+      await api('/ontology/loop/run', { method: 'POST' });
+
+      showToast('Test data added! Loading graph...');
+      await loadGraph();
+    }
+
+    function countClusters() {
+      if (graphNodes.length === 0) return 0;
+      const visited = new Set();
+      let clusters = 0;
+
+      function dfs(nodeId) {
+        if (visited.has(nodeId)) return;
+        visited.add(nodeId);
+        graphEdges.forEach(e => {
+          if (e.source?.id === nodeId) dfs(e.target?.id);
+          if (e.target?.id === nodeId) dfs(e.source?.id);
+        });
+      }
+
+      graphNodes.forEach(n => {
+        if (!visited.has(n.id)) {
+          clusters++;
+          dfs(n.id);
+        }
+      });
+
+      return clusters;
+    }
+
+    let simulationRunning = false;
+    function startSimulation() {
+      simulationRunning = true;
+      simulate();
+    }
+
+    function stopSimulation() {
+      simulationRunning = false;
+    }
+
+    function simulate() {
+      if (!simulationRunning) return;
+
+      const centerX = graphCanvas.width / 2;
+      const centerY = graphCanvas.height / 2;
+      const strength = document.getElementById('linkStrength').value / 100;
+
+      // Apply forces
+      graphNodes.forEach(node => {
+        // Center gravity
+        node.vx += (centerX - node.x) * 0.001;
+        node.vy += (centerY - node.y) * 0.001;
+
+        // Repulsion from other nodes
+        graphNodes.forEach(other => {
+          if (node === other) return;
+          const dx = node.x - other.x;
+          const dy = node.y - other.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = 1000 / (dist * dist);
+          node.vx += (dx / dist) * force;
+          node.vy += (dy / dist) * force;
+        });
+      });
+
+      // Link attraction
+      graphEdges.forEach(edge => {
+        if (!edge.source || !edge.target) return;
+        const dx = edge.target.x - edge.source.x;
+        const dy = edge.target.y - edge.source.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = (dist - 100) * 0.01 * strength * (edge.strength || 0.5);
+        edge.source.vx += (dx / dist) * force;
+        edge.source.vy += (dy / dist) * force;
+        edge.target.vx -= (dx / dist) * force;
+        edge.target.vy -= (dy / dist) * force;
+      });
+
+      // Update positions
+      let totalMovement = 0;
+      graphNodes.forEach(node => {
+        if (node === dragNode) return;
+        node.vx *= 0.9; // Damping
+        node.vy *= 0.9;
+        node.x += node.vx;
+        node.y += node.vy;
+        totalMovement += Math.abs(node.vx) + Math.abs(node.vy);
+
+        // Bounds
+        node.x = Math.max(50, Math.min(graphCanvas.width - 50, node.x));
+        node.y = Math.max(50, Math.min(graphCanvas.height - 50, node.y));
+      });
+
+      renderGraph();
+
+      // Stop when stable
+      if (totalMovement > 0.5) {
+        requestAnimationFrame(simulate);
+      } else {
+        simulationRunning = false;
+      }
+    }
+
+    function renderGraph() {
+      if (!graphCtx) return;
+
+      graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+      graphCtx.save();
+      graphCtx.translate(panOffset.x, panOffset.y);
+      graphCtx.scale(zoom, zoom);
+
+      // Draw edges
+      graphEdges.forEach(edge => {
+        if (!edge.source || !edge.target) return;
+        graphCtx.beginPath();
+        graphCtx.moveTo(edge.source.x, edge.source.y);
+        graphCtx.lineTo(edge.target.x, edge.target.y);
+        graphCtx.strokeStyle = `rgba(139, 21, 56, ${0.2 + (edge.strength || 0.5) * 0.3})`;
+        graphCtx.lineWidth = 1 + (edge.strength || 0.5) * 2;
+        graphCtx.stroke();
+      });
+
+      // Draw nodes
+      graphNodes.forEach(node => {
+        const color = NODE_COLORS[node.type] || NODE_COLORS.default;
+        const isHovered = node === hoveredNode;
+        const isSelected = node === selectedNode;
+
+        // Glow for hovered/selected
+        if (isHovered || isSelected) {
+          graphCtx.beginPath();
+          graphCtx.arc(node.x, node.y, node.radius + 4, 0, Math.PI * 2);
+          graphCtx.fillStyle = color + '40';
+          graphCtx.fill();
+        }
+
+        // Node circle
+        graphCtx.beginPath();
+        graphCtx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        graphCtx.fillStyle = color;
+        graphCtx.fill();
+
+        // Border
+        graphCtx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.3)';
+        graphCtx.lineWidth = isSelected ? 2 : 1;
+        graphCtx.stroke();
+
+        // Label
+        if (zoom > 0.7 || isHovered) {
+          graphCtx.fillStyle = '#2d2d2d';
+          graphCtx.font = '11px Inter, sans-serif';
+          graphCtx.textAlign = 'center';
+          const label = (node.label || node.id).substring(0, 20);
+          graphCtx.fillText(label, node.x, node.y + node.radius + 14);
+        }
+      });
+
+      graphCtx.restore();
+    }
+
+    function getNodeAt(x, y) {
+      const mx = (x - panOffset.x) / zoom;
+      const my = (y - panOffset.y) / zoom;
+
+      for (let i = graphNodes.length - 1; i >= 0; i--) {
+        const node = graphNodes[i];
+        const dx = mx - node.x;
+        const dy = my - node.y;
+        if (dx * dx + dy * dy < node.radius * node.radius) {
+          return node;
+        }
+      }
+      return null;
+    }
+
+    function onGraphMouseDown(e) {
+      const rect = graphCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const node = getNodeAt(x, y);
+      if (node) {
+        dragNode = node;
+        selectedNode = node;
+        isDragging = true;
+      } else {
+        isPanning = true;
+        lastMouse = { x: e.clientX, y: e.clientY };
+      }
+    }
+
+    function onGraphMouseMove(e) {
+      const rect = graphCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (isDragging && dragNode) {
+        dragNode.x = (x - panOffset.x) / zoom;
+        dragNode.y = (y - panOffset.y) / zoom;
+        dragNode.vx = 0;
+        dragNode.vy = 0;
+        renderGraph();
+      } else if (isPanning) {
+        panOffset.x += e.clientX - lastMouse.x;
+        panOffset.y += e.clientY - lastMouse.y;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        renderGraph();
+      } else {
+        const node = getNodeAt(x, y);
+        if (node !== hoveredNode) {
+          hoveredNode = node;
+          renderGraph();
+          updateTooltip(node, e.clientX, e.clientY);
+        }
+      }
+    }
+
+    function onGraphMouseUp() {
+      if (isDragging) {
+        startSimulation();
+      }
+      isDragging = false;
+      dragNode = null;
+      isPanning = false;
+    }
+
+    function onGraphMouseLeave() {
+      hoveredNode = null;
+      hideTooltip();
+      renderGraph();
+    }
+
+    function onGraphWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      zoom = Math.max(0.3, Math.min(3, zoom * delta));
+      renderGraph();
+    }
+
+    function updateTooltip(node, x, y) {
+      const tooltip = document.getElementById('nodeTooltip');
+      if (!node) {
+        tooltip.classList.remove('visible');
+        return;
+      }
+
+      document.getElementById('tooltipType').textContent = node.type || 'Node';
+      document.getElementById('tooltipTitle').textContent = node.label || node.id;
+      document.getElementById('tooltipContent').textContent =
+        `Connections: ${node.connections || 0}`;
+
+      tooltip.style.left = (x + 15) + 'px';
+      tooltip.style.top = (y + 15) + 'px';
+      tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+      document.getElementById('nodeTooltip').classList.remove('visible');
+    }
+
+    function resetGraphView() {
+      panOffset = { x: 0, y: 0 };
+      zoom = 1;
+      renderGraph();
+    }
+
+    function filterGraph() {
+      const filter = document.getElementById('graphFilter').value;
+      // Re-render with filter
+      renderGraph();
+    }
+
+    function changeLayout() {
+      const layout = document.getElementById('graphLayout').value;
+
+      if (layout === 'radial') {
+        const cx = graphCanvas.width / 2;
+        const cy = graphCanvas.height / 2;
+        graphNodes.forEach((n, i) => {
+          const angle = (i / graphNodes.length) * Math.PI * 2;
+          const radius = 200;
+          n.x = cx + Math.cos(angle) * radius;
+          n.y = cy + Math.sin(angle) * radius;
+          n.vx = 0;
+          n.vy = 0;
+        });
+      } else if (layout === 'hierarchical') {
+        const levels = {};
+        graphNodes.forEach(n => {
+          const level = n.connections || 0;
+          if (!levels[level]) levels[level] = [];
+          levels[level].push(n);
+        });
+
+        let y = 50;
+        Object.keys(levels).sort((a, b) => b - a).forEach(level => {
+          const nodes = levels[level];
+          const xStep = graphCanvas.width / (nodes.length + 1);
+          nodes.forEach((n, i) => {
+            n.x = xStep * (i + 1);
+            n.y = y;
+            n.vx = 0;
+            n.vy = 0;
+          });
+          y += 80;
+        });
+      }
+
+      if (layout === 'force') {
+        startSimulation();
+      } else {
+        renderGraph();
+      }
+    }
+
+    function updateLinkStrength() {
+      if (graphNodes.length > 0) {
+        startSimulation();
+      }
+    }
+
+    // Initialize graph when page loads
+    setTimeout(initGraph, 100);
   </script>
 </body>
 </html>
