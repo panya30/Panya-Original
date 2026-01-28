@@ -74,6 +74,13 @@
       font-weight: 700;
       font-size: 14px;
       color: #ffffff;
+      overflow: hidden;
+    }
+
+    .logo-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .logo-text {
@@ -1014,7 +1021,9 @@
 <body>
   <header class="header">
     <div class="logo">
-      <div class="logo-icon">P</div>
+      <div class="logo-icon">
+        <img src="/public/logo.png" alt="P" onerror="this.style.display='none'; this.parentElement.textContent='P';">
+      </div>
       <div>
         <div class="logo-text">Panya</div>
         <div class="logo-subtitle">Self-Learning Ontology</div>
