@@ -7,7 +7,7 @@
  * - supersede: Mark old doc as outdated, link to new
  * - resolveConflict: Handle contradicting information
  *
- * Philosophy: "Nothing is Deleted"
+ * Panya Principle: Version, Don't Delete
  * - Old documents are never deleted, only superseded
  * - All synthesis operations are tracked in history
  * - Original sources are always linked
@@ -324,7 +324,7 @@ export class Synthesizer {
 
   /**
    * Mark an old document as superseded by a new one
-   * "Nothing is Deleted" - the old doc remains but is marked as outdated
+   * Version, Don't Delete - the old doc remains but is marked as outdated
    */
   supersede(
     db: PanyaDatabase,

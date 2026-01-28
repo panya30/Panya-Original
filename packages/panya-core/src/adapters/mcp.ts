@@ -413,7 +413,7 @@ export const PANYA_MCP_TOOLS: MCPTool[] = [
   },
   {
     name: 'panya_supersede',
-    description: 'Mark an old document as superseded by a new one (Nothing is Deleted philosophy)',
+    description: 'Mark an old document as superseded by a new one (version, don\'t delete)',
     parameters: {
       type: 'object',
       properties: {

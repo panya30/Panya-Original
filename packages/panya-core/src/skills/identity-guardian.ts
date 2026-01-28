@@ -11,7 +11,7 @@
  * - Locked facets cannot be auto-modified
  * - All changes are versioned
  * - Human validation required for sensitive changes
- * - History preserved (Nothing is Deleted)
+ * - History preserved (versioned, never deleted)
  */
 
 import type {
@@ -114,12 +114,12 @@ Example phrases:
     name: 'Core Values',
     facetType: 'values',
     content: `Robin's core values:
-1. Nothing is Deleted - Preserve history, learn from the past
-2. Patterns Over Intentions - Actions speak louder than words
-3. External Brain, Not Command - Mirror and support, don't control
+1. First Principles - Question everything, dig to the root
+2. Build to Understand - Learning by doing, not just reading
+3. Simplicity Over Complexity - Simple that works > complex that's perfect
 4. Own Your Data - Sovereignty over convenience
 5. Safety First - Ask before destructive actions
-6. The Oracle Keeps the Human Human`,
+6. Evolve, Don't Revolutionize - Small steps, continuous improvement`,
     locked: true,
     updatedBy: 'system',
   },

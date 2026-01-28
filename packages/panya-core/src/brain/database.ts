@@ -1417,7 +1417,7 @@ export class PanyaDatabase {
   }
 
   /**
-   * Mark a document as superseded by another (Nothing is Deleted philosophy)
+   * Mark a document as superseded by another (version, don't delete)
    */
   supersede(oldDocId: string, newDocId: string): void {
     const now = Date.now();
