@@ -25,13 +25,27 @@
  */
 
 import { createPanyaHTTPServer } from './adapters/http';
+import { join } from 'path';
+import { homedir } from 'os';
 
 const port = parseInt(process.env.PANYA_PORT || '3100');
 const host = process.env.PANYA_HOST || '0.0.0.0';
+const enableChroma = process.env.PANYA_ENABLE_CHROMA === 'true';
 
 console.log('[panya] Starting HTTP server...');
+console.log(`[panya] ChromaDB enabled: ${enableChroma}`);
 
-const server = createPanyaHTTPServer({ port, host });
+const server = createPanyaHTTPServer({
+  port,
+  host,
+  panyaOptions: {
+    database: {
+      enableChroma,
+      chromaCollectionName: 'panya-brain',
+      chromaDataDir: join(homedir(), '.panya', 'chroma'),
+    },
+  },
+});
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {

@@ -14,6 +14,9 @@
  * 8. synthesizer - Merges and distills knowledge ✓
  * 9. identity-guardian - Protects Robin's identity ✓
  * 10. learning-loop - Orchestrates the learning cycle ✓
+ *
+ * Oracle Features (migrated from Oracle):
+ * 11. consultant - Principle-based guidance ✓
  */
 
 export { AutoLearnSkill, type Learning, type Message, type ExtractionResult as AutoLearnResult, type AutoLearnConfig } from './auto-learn';
@@ -84,3 +87,25 @@ export {
   type LoopStatus,
   type LoopResult
 } from './learning-loop';
+
+export {
+  GitHubProcessor,
+  type RepoInfo,
+  type ProcessedRepo
+} from './github-processor';
+
+// Oracle Features (migrated)
+export {
+  Consultant,
+  type ConsultantConfig,
+  type ConsultResult,
+  type ReflectResult
+} from './consultant';
+
+export {
+  ThreadManager,
+  type ThreadManagerConfig,
+  type SendMessageResult,
+  type ThreadWithMessages,
+  type ThreadSummary
+} from './thread-manager';

@@ -32,11 +32,14 @@ export type ConnectionType =
   | 'temporal_proximity' // Close in time
   | 'semantic_similar'   // Semantically similar content
   | 'explicit_link'      // Explicitly linked (updates, extends, etc.)
-  | 'author_same';       // Same author/source
+  | 'author_same'        // Same author/source
+  | 'text_similarity'    // Shared significant words
+  | 'same_type';         // Same document type
 
 export interface KnowledgeNode {
   id: string;
   type: string;
+  scope?: string;
   label: string;
   weight: number;
   connections: number;
@@ -128,16 +131,16 @@ export class KnowledgeConnectorSkill {
   private detectConnections(doc1: Document, doc2: Document): Connection[] {
     const connections: Connection[] = [];
 
-    // 1. Shared concepts
-    const sharedConcepts = this.findSharedConcepts(doc1.concepts, doc2.concepts);
-    if (sharedConcepts.length > 0) {
+    // 1. Shared tags (formerly concepts)
+    const sharedTags = this.findSharedConcepts(doc1.tags || [], doc2.tags || []);
+    if (sharedTags.length > 0) {
       connections.push({
         sourceId: doc1.id,
         targetId: doc2.id,
         type: 'concept_shared',
-        strength: Math.min(1, sharedConcepts.length * 0.3),
-        reason: `Shared concepts: ${sharedConcepts.join(', ')}`,
-        sharedConcepts,
+        strength: Math.min(1, sharedTags.length * 0.3),
+        reason: `Shared tags: ${sharedTags.join(', ')}`,
+        sharedConcepts: sharedTags,
       });
     }
 
@@ -244,19 +247,21 @@ export class KnowledgeConnectorSkill {
 
   /**
    * Build a knowledge graph from all documents
+   * @param scope - Filter by scope: 'common', 'personal', or undefined (all)
    */
-  buildGraph(db: PanyaDatabase): KnowledgeGraph {
+  buildGraph(db: PanyaDatabase, scope?: 'common' | 'personal'): KnowledgeGraph {
     const nodes: KnowledgeNode[] = [];
     const edges: Connection[] = [];
     const connectionCounts: Record<string, number> = {};
 
-    const allDocs = this.getAllDocuments(db);
+    const allDocs = this.getAllDocuments(db, scope);
 
     // Create nodes
     for (const doc of allDocs) {
       nodes.push({
         id: doc.id,
         type: doc.type,
+        scope: doc.scope,
         label: this.getDocLabel(doc),
         weight: 1,
         connections: 0,
@@ -430,7 +435,7 @@ export class KnowledgeConnectorSkill {
   // Utility
   // ==========================================================================
 
-  private getAllDocuments(db: PanyaDatabase): Document[] {
-    return db.listAllDocuments(500);
+  private getAllDocuments(db: PanyaDatabase, scope?: 'common' | 'personal'): Document[] {
+    return db.listAllDocuments(500, scope);
   }
 }

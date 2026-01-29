@@ -272,9 +272,10 @@ export class Panya {
 
   /**
    * Build knowledge graph
+   * @param scope - Filter by scope: 'common' (Panya Core), 'personal' (Robin), or undefined (all)
    */
-  buildGraph() {
-    return this.skills.knowledgeConnector.buildGraph(this.brain);
+  buildGraph(scope?: 'common' | 'personal') {
+    return this.skills.knowledgeConnector.buildGraph(this.brain, scope);
   }
 
   /**

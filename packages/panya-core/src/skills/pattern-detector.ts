@@ -178,12 +178,12 @@ export class PatternDetector {
     const coOccurrence = new Map<string, { count: number; docIds: Set<string> }>();
 
     for (const doc of docs) {
-      if (!doc.concepts || doc.concepts.length < 2) continue;
+      if (!doc.tags || doc.tags.length < 2) continue;
 
       // Generate pairs
-      for (let i = 0; i < doc.concepts.length; i++) {
-        for (let j = i + 1; j < doc.concepts.length; j++) {
-          const pair = [doc.concepts[i], doc.concepts[j]].sort().join('::');
+      for (let i = 0; i < doc.tags.length; i++) {
+        for (let j = i + 1; j < doc.tags.length; j++) {
+          const pair = [doc.tags[i], doc.tags[j]].sort().join('::');
           const existing = coOccurrence.get(pair) || { count: 0, docIds: new Set() };
           existing.count++;
           existing.docIds.add(doc.id);
@@ -300,9 +300,9 @@ export class PatternDetector {
 
     // Group by primary concept
     for (const doc of docs) {
-      if (!doc.concepts || doc.concepts.length === 0) continue;
+      if (!doc.tags || doc.tags.length === 0) continue;
 
-      const primaryConcept = doc.concepts[0];
+      const primaryConcept = doc.tags[0];
       const existing = clusters.get(primaryConcept);
 
       if (existing) {
@@ -318,7 +318,7 @@ export class PatternDetector {
         // Find common concepts across cluster
         const conceptCounts = new Map<string, number>();
         for (const doc of cluster.members) {
-          for (const c of doc.concepts || []) {
+          for (const c of doc.tags || []) {
             conceptCounts.set(c, (conceptCounts.get(c) || 0) + 1);
           }
         }
@@ -364,10 +364,10 @@ export class PatternDetector {
     const byConceptGroup = new Map<string, Document[]>();
 
     for (const doc of docs) {
-      if (!doc.concepts || doc.concepts.length === 0) continue;
+      if (!doc.tags || doc.tags.length === 0) continue;
 
       // Create a concept group key
-      const key = doc.concepts.slice(0, 3).sort().join('|');
+      const key = doc.tags.slice(0, 3).sort().join('|');
       const existing = byConceptGroup.get(key) || [];
       existing.push(doc);
       byConceptGroup.set(key, existing);
@@ -440,7 +440,7 @@ export class PatternDetector {
     const conceptTimelines = new Map<string, Document[]>();
 
     for (const doc of docs) {
-      for (const concept of doc.concepts || []) {
+      for (const concept of doc.tags || []) {
         const existing = conceptTimelines.get(concept) || [];
         existing.push(doc);
         conceptTimelines.set(concept, existing);
@@ -459,8 +459,8 @@ export class PatternDetector {
 
       if (timeSpanDays > 7 && timeline.length >= 3) {
         // Analyze direction
-        const firstConcepts = new Set(timeline[0].concepts || []);
-        const lastConcepts = new Set(timeline[timeline.length - 1].concepts || []);
+        const firstConcepts = new Set(timeline[0].tags || []);
+        const lastConcepts = new Set(timeline[timeline.length - 1].tags || []);
 
         let direction: 'growth' | 'refinement' | 'divergence' = 'refinement';
 

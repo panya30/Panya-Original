@@ -20,6 +20,29 @@
  * - POST /context - Set context
  * - GET  /graph - Knowledge graph
  * - POST /connect/:id - Auto-connect document
+ *
+ * Oracle-Migrated Endpoints:
+ * - POST /consult - Principle-based guidance for decisions
+ * - GET  /reflect - Random wisdom for alignment
+ * - GET  /decisions - List decisions
+ * - POST /decisions - Create decision
+ * - GET  /decisions/:id - Get decision details
+ * - PUT  /decisions/:id - Update decision
+ * - POST /traces - Log discovery session
+ * - GET  /traces - List traces
+ * - GET  /traces/:id - Get trace details
+ *
+ * Thread Endpoints (Multi-turn discussions):
+ * - POST /threads - Send message (creates thread if needed)
+ * - GET  /threads - List threads
+ * - GET  /threads/:id - Read thread with messages
+ * - PUT  /threads/:id - Update thread status
+ *
+ * ChromaDB / Vector Search Endpoints:
+ * - POST /chroma/init - Initialize ChromaDB connection
+ * - POST /chroma/index - Index all documents to ChromaDB
+ * - GET  /chroma/stats - Get ChromaDB stats
+ * - GET  /search?mode=hybrid - Hybrid search (add mode param: fts, vector, hybrid)
  */
 
 import { Panya, type PanyaOptions } from '../index';
@@ -29,6 +52,8 @@ import {
   Synthesizer,
   IdentityGuardian,
   LearningLoop,
+  Consultant,
+  ThreadManager,
 } from '../skills';
 
 // ============================================================================
@@ -74,6 +99,8 @@ export class PanyaHTTPAdapter {
   private synthesizer: Synthesizer;
   private identityGuardian: IdentityGuardian;
   private learningLoop: LearningLoop;
+  private consultant: Consultant;
+  private threadManager: ThreadManager;
 
   constructor(config?: HTTPServerConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -85,6 +112,8 @@ export class PanyaHTTPAdapter {
     this.synthesizer = new Synthesizer();
     this.identityGuardian = new IdentityGuardian();
     this.learningLoop = new LearningLoop();
+    this.consultant = new Consultant();
+    this.threadManager = new ThreadManager();
   }
 
   // ==========================================================================
@@ -179,7 +208,8 @@ export class PanyaHTTPAdapter {
     if (path === '/search' && method === 'GET') {
       const query = url.searchParams.get('q') || '';
       const limit = parseInt(url.searchParams.get('limit') || '10');
-      return this.handleSearch(query, limit);
+      const mode = url.searchParams.get('mode') || undefined;
+      return this.handleSearch(query, limit, mode);
     }
 
     // Learn
@@ -200,7 +230,8 @@ export class PanyaHTTPAdapter {
 
     // Knowledge Graph
     if (path === '/graph' && method === 'GET') {
-      return this.handleGraph();
+      const scope = url.searchParams.get('scope') || undefined;
+      return this.handleGraph(scope as any);
     }
 
     // Connections
@@ -357,6 +388,142 @@ export class PanyaHTTPAdapter {
       return this.handleRecordMemory(body);
     }
 
+    // ================================================================
+    // EXPORT/IMPORT (For Creating New Robin Instances)
+    // ================================================================
+
+    // Export common knowledge
+    if (path === '/export' && method === 'GET') {
+      return this.handleExport();
+    }
+
+    // Import common knowledge
+    if (path === '/import' && method === 'POST') {
+      const body = await req.json() as Record<string, any>;
+      return this.handleImport(body);
+    }
+
+    // Document scope stats
+    if (path === '/scope-stats' && method === 'GET') {
+      return this.handleScopeStats();
+    }
+
+    // ================================================================
+    // ORACLE-MIGRATED ENDPOINTS (Consult, Decisions, Traces)
+    // ================================================================
+
+    // Consult - principle-based guidance
+    if (path === '/consult' && method === 'POST') {
+      const body = await req.json() as Record<string, any>;
+      return this.handleConsult(body);
+    }
+
+    // Reflect - random wisdom
+    if (path === '/reflect' && method === 'GET') {
+      return this.handleReflect();
+    }
+
+    // Decisions - list
+    if (path === '/decisions' && method === 'GET') {
+      const status = url.searchParams.get('status') || undefined;
+      const project = url.searchParams.get('project') || undefined;
+      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const offset = parseInt(url.searchParams.get('offset') || '0');
+      return this.handleListDecisions(status, project, limit, offset);
+    }
+
+    // Decisions - create
+    if (path === '/decisions' && method === 'POST') {
+      const body = await req.json() as Record<string, any>;
+      return this.handleCreateDecision(body);
+    }
+
+    // Decisions - get by ID
+    if (path.startsWith('/decisions/') && method === 'GET') {
+      const id = path.replace('/decisions/', '');
+      return this.handleGetDecision(id);
+    }
+
+    // Decisions - update
+    if (path.startsWith('/decisions/') && method === 'PUT') {
+      const id = path.replace('/decisions/', '');
+      const body = await req.json() as Record<string, any>;
+      return this.handleUpdateDecision(id, body);
+    }
+
+    // Traces - log discovery session
+    if (path === '/traces' && method === 'POST') {
+      const body = await req.json() as Record<string, any>;
+      return this.handleCreateTrace(body);
+    }
+
+    // Traces - list
+    if (path === '/traces' && method === 'GET') {
+      const project = url.searchParams.get('project') || undefined;
+      const status = url.searchParams.get('status') || undefined;
+      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const offset = parseInt(url.searchParams.get('offset') || '0');
+      return this.handleListTraces(project, status, limit, offset);
+    }
+
+    // Traces - get by ID
+    if (path.startsWith('/traces/') && method === 'GET') {
+      const id = path.replace('/traces/', '');
+      return this.handleGetTrace(id);
+    }
+
+    // ================================================================
+    // THREAD ENDPOINTS (Multi-turn discussions)
+    // ================================================================
+
+    // Threads - send message / create thread
+    if (path === '/threads' && method === 'POST') {
+      const body = await req.json() as Record<string, any>;
+      return this.handleSendThreadMessage(body);
+    }
+
+    // Threads - list
+    if (path === '/threads' && method === 'GET') {
+      const status = url.searchParams.get('status') || undefined;
+      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const offset = parseInt(url.searchParams.get('offset') || '0');
+      return this.handleListThreads(status, limit, offset);
+    }
+
+    // Threads - get by ID (read messages)
+    if (path.startsWith('/threads/') && method === 'GET') {
+      const id = parseInt(path.replace('/threads/', ''));
+      const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined;
+      return this.handleReadThread(id, limit);
+    }
+
+    // Threads - update status
+    if (path.startsWith('/threads/') && method === 'PUT') {
+      const id = parseInt(path.replace('/threads/', ''));
+      const body = await req.json() as Record<string, any>;
+      return this.handleUpdateThreadStatus(id, body);
+    }
+
+    // ================================================================
+    // CHROMADB / VECTOR SEARCH ENDPOINTS
+    // ================================================================
+
+    // Initialize ChromaDB
+    if (path === '/chroma/init' && method === 'POST') {
+      return this.handleInitChroma();
+    }
+
+    // Index all documents to ChromaDB
+    if (path === '/chroma/index' && method === 'POST') {
+      const body = await req.json().catch(() => ({})) as Record<string, any>;
+      return this.handleIndexToChroma(body);
+    }
+
+    // Get ChromaDB stats
+    if (path === '/chroma/stats' && method === 'GET') {
+      return this.handleChromaStats();
+    }
+
     // Not found
     return {
       status: 404,
@@ -382,23 +549,48 @@ export class PanyaHTTPAdapter {
     };
   }
 
-  private handleSearch(query: string, limit: number): HTTPResponse {
+  private async handleSearch(query: string, limit: number, mode?: string): Promise<HTTPResponse> {
     if (!query) {
       return { status: 400, body: { error: 'Query parameter "q" is required' } };
     }
 
-    const results = this.panya.search(query, limit);
+    // Determine search mode
+    const searchMode = mode || (this.panya.brain.isChromaEnabled() ? 'hybrid' : 'fts');
+    let results: any[] = [];
+    let actualMode = searchMode;
+
+    if (searchMode === 'hybrid' && this.panya.brain.isChromaEnabled()) {
+      const hybridResults = await this.panya.brain.hybridSearch(query, limit);
+      results = hybridResults.map(r => ({
+        ...r.document,
+        ftsScore: r.ftsScore,
+        vectorScore: r.vectorScore,
+        combinedScore: r.combinedScore,
+      }));
+    } else if (searchMode === 'vector' && this.panya.brain.isChromaEnabled()) {
+      results = await this.panya.brain.searchVector(query, limit);
+    } else {
+      results = this.panya.search(query, limit);
+      actualMode = 'fts';
+    }
+
     return {
       status: 200,
       body: {
         query,
+        mode: actualMode,
+        chromaEnabled: this.panya.brain.isChromaEnabled(),
         resultCount: results.length,
-        results: results.map(doc => ({
+        results: results.map((doc: any) => ({
           id: doc.id,
           type: doc.type,
+          scope: doc.scope,
           sourceFile: doc.sourceFile,
           content: doc.content?.substring(0, 200),
-          concepts: doc.concepts,
+          tags: doc.tags,
+          ...(doc.ftsScore !== undefined && { ftsScore: doc.ftsScore }),
+          ...(doc.vectorScore !== undefined && { vectorScore: doc.vectorScore }),
+          ...(doc.combinedScore !== undefined && { combinedScore: doc.combinedScore }),
         })),
       },
     };
@@ -485,12 +677,13 @@ export class PanyaHTTPAdapter {
     };
   }
 
-  private handleGraph(): HTTPResponse {
-    const graph = this.panya.buildGraph();
+  private handleGraph(scope?: 'common' | 'personal'): HTTPResponse {
+    const graph = this.panya.buildGraph(scope);
 
     return {
       status: 200,
       body: {
+        scope: scope || 'all',
         stats: graph.stats,
         nodes: graph.nodes.slice(0, 100),
         edges: graph.edges.slice(0, 200),
@@ -962,6 +1155,554 @@ export class PanyaHTTPAdapter {
     return {
       status: 200,
       body: { success: true, memoryId: id, memoryType, importance },
+    };
+  }
+
+  // ==========================================================================
+  // Export/Import Handlers
+  // ==========================================================================
+
+  private handleExport(): HTTPResponse {
+    const exportData = this.panya.brain.exportCommonKnowledge();
+    const scopeStats = this.panya.brain.getDocumentCountByScope();
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        version: exportData.version,
+        exportedAt: new Date(exportData.exportedAt).toISOString(),
+        stats: {
+          documents: exportData.documents.length,
+          entities: exportData.entities.length,
+          patterns: exportData.patterns.length,
+          entityTypes: exportData.entityTypes.length,
+          relationshipTypes: exportData.relationshipTypes.length,
+          scopeStats,
+        },
+        data: exportData,
+      },
+    };
+  }
+
+  private handleImport(body: Record<string, any>): HTTPResponse {
+    const { data } = body;
+    if (!data || !data.version) {
+      return { status: 400, body: { error: 'Export data object with version is required' } };
+    }
+
+    try {
+      const result = this.panya.brain.importCommonKnowledge(data);
+      return {
+        status: 200,
+        body: {
+          success: true,
+          imported: result.imported,
+          skipped: result.skipped,
+          message: `Imported ${result.imported.documents} documents, ${result.imported.entities} entities, ${result.imported.patterns} patterns`,
+        },
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        body: {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  }
+
+  private handleScopeStats(): HTTPResponse {
+    const scopeStats = this.panya.brain.getDocumentCountByScope();
+
+    return {
+      status: 200,
+      body: {
+        common: scopeStats.common,
+        personal: scopeStats.personal,
+        total: scopeStats.common + scopeStats.personal,
+        description: {
+          common: 'Shared wisdom that can be exported to new Robin instances',
+          personal: 'Private knowledge specific to this Robin-user relationship',
+        },
+      },
+    };
+  }
+
+  // ==========================================================================
+  // Oracle-Migrated Handlers (Consult, Decisions, Traces)
+  // ==========================================================================
+
+  private async handleConsult(body: Record<string, any>): Promise<HTTPResponse> {
+    const { decision, context } = body;
+    if (!decision) {
+      return { status: 400, body: { error: 'decision is required' } };
+    }
+
+    const result = await this.consultant.consult(this.panya.brain, decision, context);
+    return {
+      status: 200,
+      body: {
+        guidance: result.guidance,
+        principleCount: result.principles.length,
+        patternCount: result.patterns.length,
+        relatedDecisionCount: result.relatedDecisions.length,
+        confidence: result.confidence,
+        principles: result.principles.map(p => ({
+          id: p.id,
+          content: p.content?.substring(0, 200),
+          tags: p.tags,
+        })),
+        patterns: result.patterns.map(p => ({
+          id: p.id,
+          content: p.content?.substring(0, 150),
+          tags: p.tags,
+        })),
+        relatedDecisions: result.relatedDecisions,
+      },
+    };
+  }
+
+  private async handleReflect(): Promise<HTTPResponse> {
+    const result = await this.consultant.reflect(this.panya.brain);
+    return {
+      status: 200,
+      body: {
+        insight: result.insight,
+        principle: result.principle ? {
+          id: result.principle.id,
+          content: result.principle.content,
+          tags: result.principle.tags,
+        } : null,
+        relatedDocs: result.relatedDocs.map(d => ({
+          id: d.id,
+          content: d.content?.substring(0, 100),
+          tags: d.tags,
+        })),
+      },
+    };
+  }
+
+  private handleListDecisions(
+    status?: string,
+    project?: string,
+    limit: number = 20,
+    offset: number = 0
+  ): HTTPResponse {
+    const decisions = this.panya.brain.listDecisions({
+      status: status as any,
+      project,
+      limit,
+      offset,
+    });
+
+    return {
+      status: 200,
+      body: {
+        count: decisions.length,
+        decisions: decisions.map(d => ({
+          id: d.id,
+          title: d.title,
+          status: d.status,
+          project: d.project,
+          decision: d.decision,
+          tags: d.tags,
+          createdAt: new Date(d.createdAt).toISOString(),
+          updatedAt: new Date(d.updatedAt).toISOString(),
+        })),
+      },
+    };
+  }
+
+  private handleCreateDecision(body: Record<string, any>): HTTPResponse {
+    const { title, context, project, options, tags } = body;
+    if (!title) {
+      return { status: 400, body: { error: 'title is required' } };
+    }
+
+    const id = `dec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    this.panya.brain.createDecision({
+      id,
+      title,
+      context,
+      project,
+      status: 'pending',
+      options: options || [],
+      tags: tags || [],
+    });
+
+    // Fetch the created decision
+    const decision = this.panya.brain.getDecision(id);
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        decision: decision ? {
+          id: decision.id,
+          title: decision.title,
+          status: decision.status,
+          project: decision.project,
+          createdAt: new Date(decision.createdAt).toISOString(),
+        } : { id },
+      },
+    };
+  }
+
+  private handleGetDecision(id: string): HTTPResponse {
+    const decision = this.panya.brain.getDecision(id);
+    if (!decision) {
+      return { status: 404, body: { error: 'Decision not found', id } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        decision: {
+          id: decision.id,
+          title: decision.title,
+          context: decision.context,
+          project: decision.project,
+          status: decision.status,
+          options: decision.options,
+          decision: decision.decision,
+          rationale: decision.rationale,
+          decidedBy: decision.decidedBy,
+          decidedAt: decision.decidedAt ? new Date(decision.decidedAt).toISOString() : null,
+          tags: decision.tags,
+          createdAt: new Date(decision.createdAt).toISOString(),
+          updatedAt: new Date(decision.updatedAt).toISOString(),
+        },
+      },
+    };
+  }
+
+  private handleUpdateDecision(id: string, body: Record<string, any>): HTTPResponse {
+    const existing = this.panya.brain.getDecision(id);
+    if (!existing) {
+      return { status: 404, body: { error: 'Decision not found', id } };
+    }
+
+    const { title, context, status, options, decision, rationale, decidedBy, tags } = body;
+
+    this.panya.brain.updateDecision(id, {
+      title,
+      context,
+      status,
+      options,
+      decision,
+      rationale,
+      decidedBy,
+      tags,
+    });
+
+    // Fetch the updated decision
+    const updated = this.panya.brain.getDecision(id);
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        decision: updated ? {
+          id: updated.id,
+          title: updated.title,
+          status: updated.status,
+          decision: updated.decision,
+          rationale: updated.rationale,
+          updatedAt: new Date(updated.updatedAt).toISOString(),
+        } : { id },
+      },
+    };
+  }
+
+  private handleCreateTrace(body: Record<string, any>): HTTPResponse {
+    const {
+      query,
+      queryType = 'general',
+      project,
+      parentTraceId,
+      foundFiles,
+      foundCommits,
+      foundIssues,
+      foundLearnings,
+      agentCount,
+      durationMs,
+    } = body;
+
+    if (!query) {
+      return { status: 400, body: { error: 'query is required' } };
+    }
+
+    const id = crypto.randomUUID();
+    const depth = parentTraceId ? 1 : 0; // Simplified depth calculation
+
+    this.panya.brain.createTrace({
+      id,
+      query,
+      queryType,
+      project,
+      status: 'raw',
+      depth,
+      parentTraceId,
+      foundFiles: foundFiles || [],
+      foundCommits: foundCommits || [],
+      foundIssues: foundIssues || [],
+      foundLearnings: foundLearnings || [],
+      agentCount,
+      durationMs,
+    });
+
+    // Fetch the created trace
+    const trace = this.panya.brain.getTrace(id);
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        trace: trace ? {
+          id: trace.id,
+          query: trace.query,
+          queryType: trace.queryType,
+          project: trace.project,
+          status: trace.status,
+          foundFilesCount: trace.foundFiles.length,
+          foundCommitsCount: trace.foundCommits.length,
+          foundIssuesCount: trace.foundIssues.length,
+          createdAt: new Date(trace.createdAt).toISOString(),
+        } : { id },
+      },
+    };
+  }
+
+  private handleListTraces(
+    project?: string,
+    status?: string,
+    limit: number = 20,
+    offset: number = 0
+  ): HTTPResponse {
+    const traces = this.panya.brain.listTraces({
+      project,
+      status: status as any,
+      limit,
+      offset,
+    });
+
+    return {
+      status: 200,
+      body: {
+        count: traces.length,
+        traces: traces.map(t => ({
+          id: t.id,
+          query: t.query,
+          queryType: t.queryType,
+          project: t.project,
+          status: t.status,
+          depth: t.depth,
+          foundFilesCount: t.foundFiles.length,
+          foundCommitsCount: t.foundCommits.length,
+          foundIssuesCount: t.foundIssues.length,
+          durationMs: t.durationMs,
+          createdAt: new Date(t.createdAt).toISOString(),
+        })),
+      },
+    };
+  }
+
+  private handleGetTrace(id: string): HTTPResponse {
+    const trace = this.panya.brain.getTrace(id);
+    if (!trace) {
+      return { status: 404, body: { error: 'Trace not found', id } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        trace: {
+          id: trace.id,
+          query: trace.query,
+          queryType: trace.queryType,
+          project: trace.project,
+          status: trace.status,
+          depth: trace.depth,
+          parentTraceId: trace.parentTraceId,
+          foundFiles: trace.foundFiles,
+          foundCommits: trace.foundCommits,
+          foundIssues: trace.foundIssues,
+          foundLearnings: trace.foundLearnings,
+          agentCount: trace.agentCount,
+          durationMs: trace.durationMs,
+          createdAt: new Date(trace.createdAt).toISOString(),
+        },
+      },
+    };
+  }
+
+  // ==========================================================================
+  // Thread Handlers
+  // ==========================================================================
+
+  private handleSendThreadMessage(body: Record<string, any>): HTTPResponse {
+    const { message, threadId, title, role } = body;
+    if (!message) {
+      return { status: 400, body: { error: 'message is required' } };
+    }
+
+    const result = this.threadManager.sendMessage(this.panya.brain, message, {
+      threadId,
+      title,
+      role,
+    });
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        threadId: result.threadId,
+        messageId: result.messageId,
+        isNewThread: result.isNewThread,
+        thread: {
+          id: result.thread.id,
+          title: result.thread.title,
+          status: result.thread.status,
+          createdAt: new Date(result.thread.createdAt).toISOString(),
+          updatedAt: new Date(result.thread.updatedAt).toISOString(),
+        },
+      },
+    };
+  }
+
+  private handleListThreads(
+    status?: string,
+    limit: number = 20,
+    offset: number = 0
+  ): HTTPResponse {
+    const threads = this.threadManager.list(this.panya.brain, {
+      status: status as any,
+      limit,
+      offset,
+    });
+
+    return {
+      status: 200,
+      body: {
+        count: threads.length,
+        threads: threads.map(t => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          messageCount: t.messageCount,
+          lastMessageAt: new Date(t.lastMessageAt).toISOString(),
+          createdAt: new Date(t.createdAt).toISOString(),
+          updatedAt: new Date(t.updatedAt).toISOString(),
+        })),
+      },
+    };
+  }
+
+  private handleReadThread(id: number, limit?: number): HTTPResponse {
+    const thread = this.threadManager.read(this.panya.brain, id, limit);
+    if (!thread) {
+      return { status: 404, body: { error: 'Thread not found', id } };
+    }
+
+    return {
+      status: 200,
+      body: {
+        thread: {
+          id: thread.id,
+          title: thread.title,
+          status: thread.status,
+          messageCount: thread.messageCount,
+          messages: thread.messages.map(m => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            createdAt: new Date(m.createdAt).toISOString(),
+          })),
+          createdAt: new Date(thread.createdAt).toISOString(),
+          updatedAt: new Date(thread.updatedAt).toISOString(),
+        },
+      },
+    };
+  }
+
+  private handleUpdateThreadStatus(id: number, body: Record<string, any>): HTTPResponse {
+    const { status } = body;
+    if (!status) {
+      return { status: 400, body: { error: 'status is required' } };
+    }
+
+    const result = this.threadManager.updateStatus(this.panya.brain, id, status);
+
+    if (!result.success) {
+      return {
+        status: 400,
+        body: { error: result.error || 'Failed to update thread' },
+      };
+    }
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        threadId: id,
+        newStatus: status,
+      },
+    };
+  }
+
+  // ==========================================================================
+  // ChromaDB Handlers
+  // ==========================================================================
+
+  private async handleInitChroma(): Promise<HTTPResponse> {
+    const success = await this.panya.brain.initChroma();
+
+    return {
+      status: 200,
+      body: {
+        success,
+        message: success
+          ? 'ChromaDB initialized. You can now use vector and hybrid search.'
+          : 'ChromaDB init failed. Check if chroma-mcp is installed.',
+        chromaEnabled: this.panya.brain.isChromaEnabled(),
+      },
+    };
+  }
+
+  private async handleIndexToChroma(body: Record<string, any>): Promise<HTTPResponse> {
+    const { batchSize = 100 } = body;
+
+    if (!this.panya.brain.isChromaEnabled()) {
+      return {
+        status: 400,
+        body: { error: 'ChromaDB not initialized. Call POST /chroma/init first.' },
+      };
+    }
+
+    const result = await this.panya.brain.indexAllToChroma(batchSize);
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        indexed: result.indexed,
+        failed: result.failed,
+        message: `Indexed ${result.indexed} documents (${result.failed} failed)`,
+      },
+    };
+  }
+
+  private async handleChromaStats(): Promise<HTTPResponse> {
+    const stats = await this.panya.brain.getChromaStats();
+
+    return {
+      status: 200,
+      body: {
+        chromaEnabled: this.panya.brain.isChromaEnabled(),
+        stats: stats || { count: 0, connected: false },
+      },
     };
   }
 }

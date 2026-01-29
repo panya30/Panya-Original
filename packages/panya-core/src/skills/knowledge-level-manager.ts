@@ -187,7 +187,7 @@ export class KnowledgeLevelManager {
         const doc = db.getDocument(documentId);
         if (!doc) return false;
         // Count entities in concepts array (simplified check)
-        return (doc.concepts?.length ?? 0) >= rule.thresholdValue;
+        return (doc.tags?.length ?? 0) >= rule.thresholdValue;
       }
 
       case 'validation':

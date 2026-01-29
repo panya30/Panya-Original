@@ -43,6 +43,7 @@ export interface AutoLearnConfig {
   minImportance: number;
   maxLearningsPerSession: number;
   llmExtractor?: (conversationText: string, context?: string) => Promise<Learning[]>;
+  entityLlmExtractor?: (text: string) => Promise<ExtractedEntity[]>;
 }
 
 // ============================================================================
@@ -65,7 +66,9 @@ export class AutoLearnSkill {
 
   constructor(config?: Partial<AutoLearnConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.entityExtractor = new EntityExtractor();
+    this.entityExtractor = new EntityExtractor({
+      llmExtractor: config?.entityLlmExtractor,
+    });
   }
 
   /**
@@ -107,7 +110,7 @@ export class AutoLearnSkill {
 
     // Extract entities for each learning
     for (const learning of qualityLearnings) {
-      const result = await this.entityExtractor.extract(learning.content, { useLLM: false });
+      const result = await this.entityExtractor.extract(learning.content, { useLLM: true });
       learning.entities = result.entities.map(e => e.name);
     }
 

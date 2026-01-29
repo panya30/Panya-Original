@@ -47,7 +47,7 @@
     .header {
       background: var(--bg-card);
       border-bottom: 1px solid var(--border-color);
-      padding: 1rem 2rem;
+      padding: 0.5rem 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -63,8 +63,9 @@
     }
 
     .logo-img {
-      height: 48px;
+      height: 64px;
       width: auto;
+      margin: -12px 0;
     }
 
     .status-indicator {
@@ -1417,11 +1418,21 @@
         <div class="graph-container">
           <div class="graph-toolbar">
             <div class="graph-toolbar-group">
-              <label>Filter:</label>
+              <label>View:</label>
+              <select id="scopeFilter" onchange="loadGraph()">
+                <option value="all">All Knowledge</option>
+                <option value="common">Panya Core (Common)</option>
+                <option value="personal">Robin (Personal)</option>
+              </select>
+            </div>
+            <div class="graph-toolbar-group">
+              <label>Type:</label>
               <select id="graphFilter" onchange="filterGraph()">
-                <option value="all">All Nodes</option>
-                <option value="document">Documents Only</option>
-                <option value="entity">Entities Only</option>
+                <option value="all">All Types</option>
+                <option value="learning">Learnings</option>
+                <option value="pattern">Patterns</option>
+                <option value="note">Notes</option>
+                <option value="memory">Memories</option>
               </select>
             </div>
             <div class="graph-toolbar-group">
@@ -1453,18 +1464,27 @@
             </div>
           </div>
           <div class="graph-legend" id="graphLegend">
-            <div class="graph-legend-title">Node Types</div>
-            <div class="graph-legend-item">
-              <span class="graph-legend-color" style="background: #8b1538"></span>
-              <span>Document</span>
-            </div>
+            <div class="graph-legend-title">Knowledge Scope</div>
             <div class="graph-legend-item">
               <span class="graph-legend-color" style="background: #2e7d32"></span>
-              <span>Entity</span>
+              <span>Common (Shareable)</span>
+            </div>
+            <div class="graph-legend-item">
+              <span class="graph-legend-color" style="background: #8b1538"></span>
+              <span>Personal (Private)</span>
+            </div>
+            <div class="graph-legend-title" style="margin-top: 0.75rem;">Document Types</div>
+            <div class="graph-legend-item">
+              <span class="graph-legend-color" style="background: #6a1b9a"></span>
+              <span>Learning</span>
             </div>
             <div class="graph-legend-item">
               <span class="graph-legend-color" style="background: #c77700"></span>
-              <span>Concept</span>
+              <span>Pattern</span>
+            </div>
+            <div class="graph-legend-item">
+              <span class="graph-legend-color" style="background: #2196f3"></span>
+              <span>Memory</span>
             </div>
           </div>
           <div class="node-tooltip" id="nodeTooltip">
@@ -1509,7 +1529,8 @@
           <form onsubmit="addObservation(event)">
             <div class="form-group">
               <label class="form-label">Observation Type</label>
-              <select class="form-input" id="obsType">
+              <select class="form-input" id="obsType" onchange="updateObsPlaceholder()">
+                <option value="github_repo">GitHub Repository</option>
                 <option value="conversation">Conversation</option>
                 <option value="feedback">Feedback</option>
                 <option value="external">External</option>
@@ -1518,8 +1539,8 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Content</label>
-              <textarea class="form-textarea" id="obsContent" placeholder="Enter the observation content..."></textarea>
+              <label class="form-label" id="obsContentLabel">Content</label>
+              <textarea class="form-textarea" id="obsContent" placeholder="https://github.com/owner/repo"></textarea>
             </div>
             <button type="submit" class="btn btn-primary">Add Observation</button>
           </form>
@@ -2071,6 +2092,33 @@
     }
 
     // Observations
+    function updateObsPlaceholder() {
+      const type = document.getElementById('obsType').value;
+      const content = document.getElementById('obsContent');
+      const label = document.getElementById('obsContentLabel');
+
+      const placeholders = {
+        github_repo: 'https://github.com/owner/repo',
+        conversation: 'Enter conversation content...',
+        feedback: 'Enter feedback...',
+        external: 'Enter external knowledge...',
+        file_change: 'Describe the file change...',
+        search: 'Enter search query or findings...',
+      };
+
+      const labels = {
+        github_repo: 'GitHub URL',
+        conversation: 'Content',
+        feedback: 'Content',
+        external: 'Content',
+        file_change: 'Content',
+        search: 'Content',
+      };
+
+      content.placeholder = placeholders[type] || 'Enter content...';
+      label.textContent = labels[type] || 'Content';
+    }
+
     async function addObservation(e) {
       e.preventDefault();
       const type = document.getElementById('obsType').value;
@@ -2081,13 +2129,21 @@
         return;
       }
 
+      // Validate GitHub URL
+      if (type === 'github_repo' && !content.includes('github.com')) {
+        showToast('Please enter a valid GitHub URL', 'error');
+        return;
+      }
+
+      showToast(type === 'github_repo' ? 'Processing GitHub repo...' : 'Adding observation...');
+
       const data = await api('/ontology/observations', {
         method: 'POST',
         body: JSON.stringify({ type, content })
       });
 
       if (data && data.success) {
-        showToast(`Observation added (ID: ${data.observationId})`);
+        showToast(`Observation added (ID: ${data.observationId}). Run Learning Loop to process.`);
         document.getElementById('obsContent').value = '';
       }
     }
@@ -2166,6 +2222,21 @@
     let isPanning = false;
     let zoom = 1;
 
+    // Scope-based colors (Common vs Personal)
+    const SCOPE_COLORS = {
+      common: '#2e7d32',    // Green - shared wisdom
+      personal: '#8b1538',  // Burgundy - private knowledge
+    };
+
+    // Type-based colors (secondary)
+    const TYPE_COLORS = {
+      learning: '#6a1b9a',  // Purple
+      pattern: '#c77700',   // Orange
+      note: '#5a5a5a',      // Gray
+      memory: '#2196f3',    // Blue
+    };
+
+    // Backwards compatibility
     const NODE_COLORS = {
       document: '#8b1538',
       learning: '#8b1538',
@@ -2176,6 +2247,14 @@
       concept: '#c77700',
       default: '#5a5a5a'
     };
+
+    function getNodeColor(node) {
+      // Use scope-based coloring
+      if (node.scope === 'common') return SCOPE_COLORS.common;
+      if (node.scope === 'personal') return SCOPE_COLORS.personal;
+      // Fallback to type-based coloring
+      return NODE_COLORS[node.type] || NODE_COLORS.default;
+    }
 
     function initGraph() {
       graphCanvas = document.getElementById('graphCanvas');
@@ -2202,8 +2281,14 @@
     }
 
     async function loadGraph() {
-      showToast('Loading graph...');
-      const data = await api('/graph');
+      const scopeFilter = document.getElementById('scopeFilter')?.value || 'all';
+      const scopeParam = scopeFilter !== 'all' ? `?scope=${scopeFilter}` : '';
+
+      const viewLabel = scopeFilter === 'common' ? 'Panya Core' :
+                        scopeFilter === 'personal' ? 'Robin Personal' : 'All';
+      showToast(`Loading ${viewLabel} knowledge...`);
+
+      const data = await api(`/graph${scopeParam}`);
       if (!data) return;
 
       graphData = data;
@@ -2228,7 +2313,7 @@
       document.getElementById('clusterCount').textContent = countClusters();
 
       startSimulation();
-      showToast(`Loaded ${graphNodes.length} nodes, ${graphEdges.length} edges`);
+      showToast(`${viewLabel}: ${graphNodes.length} nodes, ${graphEdges.length} edges`);
     }
 
     async function addTestData() {
@@ -2378,7 +2463,7 @@
 
       // Draw nodes
       graphNodes.forEach(node => {
-        const color = NODE_COLORS[node.type] || NODE_COLORS.default;
+        const color = getNodeColor(node);
         const isHovered = node === hoveredNode;
         const isSelected = node === selectedNode;
 
@@ -2500,10 +2585,13 @@
         return;
       }
 
-      document.getElementById('tooltipType').textContent = node.type || 'Node';
+      const scopeLabel = node.scope === 'common' ? 'COMMON' : 'PERSONAL';
+      const typeLabel = node.type?.toUpperCase() || 'NODE';
+      document.getElementById('tooltipType').textContent = `${scopeLabel} · ${typeLabel}`;
       document.getElementById('tooltipTitle').textContent = node.label || node.id;
       document.getElementById('tooltipContent').textContent =
-        `Connections: ${node.connections || 0}`;
+        `Connections: ${node.connections || 0}` +
+        (node.scope ? `\nScope: ${node.scope === 'common' ? 'Shareable wisdom' : 'Private knowledge'}` : '');
 
       tooltip.style.left = (x + 15) + 'px';
       tooltip.style.top = (y + 15) + 'px';

@@ -29,6 +29,7 @@ import { Synthesizer, type SynthesisResult } from './synthesizer';
 import { IdentityGuardian } from './identity-guardian';
 import { AutoLearnSkill } from './auto-learn';
 import { EntityExtractor } from '../brain/entities';
+import { GitHubProcessor } from './github-processor';
 
 // ============================================================================
 // Types
@@ -85,6 +86,7 @@ export class LearningLoop {
   private identityGuardian: IdentityGuardian;
   private autoLearn: AutoLearnSkill;
   private entityExtractor: EntityExtractor;
+  private githubProcessor: GitHubProcessor;
 
   constructor(config?: LearningLoopConfig) {
     this.config = {
@@ -110,6 +112,7 @@ export class LearningLoop {
     this.identityGuardian = new IdentityGuardian();
     this.autoLearn = new AutoLearnSkill();
     this.entityExtractor = new EntityExtractor();
+    this.githubProcessor = new GitHubProcessor();
   }
 
   // ==========================================================================
@@ -218,15 +221,38 @@ export class LearningLoop {
       try {
         db.updateObservationStage(obs.id, 'extracting');
 
+        // Handle GitHub repo observations specially
+        if (obs.observationType === 'github_repo') {
+          const result = await this.processGitHubRepo(db, obs);
+          if (result.success) {
+            db.updateObservationStage(obs.id, 'extracted', result.docIds);
+            processed++;
+            created += result.docIds.length;
+          } else {
+            db.updateObservationStage(obs.id, 'failed');
+          }
+          continue;
+        }
+
         // Create a document from the observation
         const docId = `obs-${obs.id}-${Date.now()}`;
 
+        // Map observation type to document type
+        const typeMap: Record<string, 'learning' | 'pattern' | 'note' | 'memory'> = {
+          conversation: 'note',
+          file_change: 'note',
+          search: 'note',
+          feedback: 'learning',
+          external: 'learning',
+        };
+
         db.insertDocument({
           id: docId,
-          type: obs.observationType,
+          type: typeMap[obs.observationType] || 'note',
+          scope: 'personal', // Observations start as personal
           sourceFile: `observation:${obs.id}`,
           content: obs.content,
-          concepts: [],
+          tags: [],
         });
 
         // Initialize at L1 (Raw)
@@ -241,6 +267,65 @@ export class LearningLoop {
     }
 
     return { processed, created };
+  }
+
+  /**
+   * Process a GitHub repository observation
+   */
+  private async processGitHubRepo(db: PanyaDatabase, obs: Observation): Promise<{ success: boolean; docIds: string[] }> {
+    const docIds: string[] = [];
+
+    try {
+      // Process the GitHub URL
+      const result = await this.githubProcessor.process(obs.content);
+
+      if (!result.success || !result.repoInfo) {
+        console.error('[learning-loop] GitHub processing failed:', result.error);
+        return { success: false, docIds: [] };
+      }
+
+      // Create a main document for the repo
+      const mainDocId = `github-${result.repoInfo.owner}-${result.repoInfo.repo}-${Date.now()}`;
+      const content = this.githubProcessor.generateObservationContent(result);
+
+      db.insertDocument({
+        id: mainDocId,
+        type: 'learning',
+        scope: 'common', // GitHub learnings are common knowledge
+        sourceFile: `github:${result.repoInfo.url}`,
+        content,
+        tags: result.tags,
+      });
+
+      // Initialize at L2 (Extracted) since we've already processed it
+      this.levelManager.initializeDocument(db, mainDocId, 0.7);
+      this.levelManager.setLevel(db, mainDocId, 2, 0.7);
+      docIds.push(mainDocId);
+
+      // Create individual learning documents for each insight
+      for (let i = 0; i < result.learnings.length; i++) {
+        const learning = result.learnings[i];
+        const learningDocId = `github-${result.repoInfo.repo}-learning-${i}-${Date.now()}`;
+
+        db.insertDocument({
+          id: learningDocId,
+          type: 'learning',
+          scope: 'common',
+          sourceFile: `github:${result.repoInfo.url}#learning-${i}`,
+          content: learning,
+          tags: result.tags.slice(0, 3),
+        });
+
+        this.levelManager.initializeDocument(db, learningDocId, 0.6);
+        docIds.push(learningDocId);
+      }
+
+      console.log(`[learning-loop] Processed GitHub repo: ${result.repoInfo.owner}/${result.repoInfo.repo} -> ${docIds.length} documents`);
+      return { success: true, docIds };
+    } catch (error) {
+      console.error('[learning-loop] GitHub processing error:', error);
+      return { success: false, docIds: [] };
+    }
   }
 
   // ==========================================================================
@@ -279,7 +364,7 @@ export class LearningLoop {
           // Get the current document and update its concepts
           const currentDoc = db.getDocument(docId);
           if (currentDoc) {
-            const mergedConcepts = [...new Set([...(currentDoc.concepts || []), ...concepts])];
+            const mergedTags = [...new Set([...(currentDoc.tags || []), ...concepts])];
             // Update knowledge level confidence based on extraction
             const levelData = db.getKnowledgeLevel(docId);
             if (levelData) {

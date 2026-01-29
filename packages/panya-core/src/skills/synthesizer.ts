@@ -136,31 +136,32 @@ export class Synthesizer {
         mergedContent = docs.map(d => d.content || '').join('\n\n');
     }
 
-    // Merge concepts (union, deduplicated)
-    const allConcepts = new Set<string>();
+    // Merge tags (union, deduplicated)
+    const allTags = new Set<string>();
     for (const doc of docs) {
-      for (const c of doc.concepts || []) {
-        allConcepts.add(c);
+      for (const c of doc.tags || []) {
+        allTags.add(c);
       }
     }
 
-    // Add any custom concepts
+    // Add any custom tags
     if (options.newConcepts) {
       for (const c of options.newConcepts) {
-        allConcepts.add(c);
+        allTags.add(c);
       }
     }
 
     // Create new document
     const newDocId = `synth-merge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const newType = options.newType || docs[0].type;
+    const newType = docs[0].type; // Inherit type from first doc
 
     db.insertDocument({
       id: newDocId,
       type: newType,
+      scope: 'common', // Synthesized docs are common by default
       sourceFile: `synthesized:${documentIds.join(',')}`,
       content: mergedContent,
-      concepts: Array.from(allConcepts),
+      tags: Array.from(allTags),
     });
 
     // Set knowledge level (L3 Synthesized)
@@ -191,7 +192,7 @@ export class Synthesizer {
       synthesisType: 'merge',
       metadata: {
         strategy: options.strategy,
-        conceptCount: allConcepts.size,
+        conceptCount: allTags.size,
         contentLength: mergedContent.length,
       },
     };
@@ -285,9 +286,10 @@ export class Synthesizer {
     db.insertDocument({
       id: newDocId,
       type: doc.type,
+      scope: doc.scope || 'common',
       sourceFile: `distilled:${documentId}`,
       content: distilledContent,
-      concepts: doc.concepts,
+      tags: doc.tags || [],
     });
 
     // Set knowledge level

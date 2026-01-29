@@ -18,6 +18,8 @@
 
 import { Panya } from './index';
 import { PanyaMCPAdapter, PANYA_MCP_TOOLS } from './adapters/mcp';
+import { extractLearningsWithOpenAI, extractEntitiesWithOpenAI } from './brain/openai-extractor';
+import { EntityExtractor } from './brain/entities';
 
 // ============================================================================
 // MCP Protocol Types
@@ -41,7 +43,18 @@ interface MCPResponse {
 // Server State
 // ============================================================================
 
-const panya = new Panya();
+const panya = new Panya({
+  autoLearn: {
+    llmExtractor: extractLearningsWithOpenAI,
+    entityLlmExtractor: extractEntitiesWithOpenAI,
+  },
+});
+
+// Configure entity extractor with OpenAI
+panya.entityExtractor = new EntityExtractor({
+  llmExtractor: extractEntitiesWithOpenAI,
+});
+
 const adapter = new PanyaMCPAdapter(panya);
 let initialized = false;
 

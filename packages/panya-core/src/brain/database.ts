@@ -2,13 +2,19 @@
  * Panya Brain Database
  *
  * Core database layer for Panya memory system.
- * Uses SQLite for storage, independent of any MCP or external service.
+ * Uses SQLite for storage with optional ChromaDB for vector search.
+ *
+ * Search modes:
+ * - FTS5: Fast keyword-based search
+ * - Vector: Semantic similarity search via ChromaDB
+ * - Hybrid: Combined FTS5 + Vector for best results
  */
 
 import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { homedir } from 'os';
 import { mkdir } from 'fs/promises';
+import { ChromaMcpClient, type ChromaDocument, type ChromaQueryResult } from './chroma-client';
 
 // ============================================================================
 // Types
@@ -18,14 +24,34 @@ export interface PanyaConfig {
   dbPath?: string;
   dataDir?: string;
   createIfMissing?: boolean;
+  // ChromaDB options for vector search
+  enableChroma?: boolean;
+  chromaCollectionName?: string;
+  chromaDataDir?: string;
+  chromaPythonVersion?: string;
 }
+
+export type SearchMode = 'fts' | 'vector' | 'hybrid';
+
+export interface HybridSearchResult {
+  id: string;
+  document: Document;
+  ftsScore?: number;
+  vectorScore?: number;
+  combinedScore: number;
+}
+
+// Panya document types (simple, not Oracle-style)
+export type PanyaDocType = 'learning' | 'pattern' | 'note' | 'memory';
+export type PanyaScope = 'common' | 'personal';
 
 export interface Document {
   id: string;
-  type: string;
+  type: PanyaDocType;
+  scope: PanyaScope;
   sourceFile: string;
   content?: string;
-  concepts: string[];
+  tags: string[];  // renamed from concepts for clarity
   createdAt: number;
   updatedAt: number;
 }
@@ -179,8 +205,97 @@ export interface RelationshipMemory {
   updatedAt: number;
 }
 
-export type ObservationType = 'conversation' | 'file_change' | 'search' | 'feedback' | 'external';
+export type ObservationType = 'conversation' | 'file_change' | 'search' | 'feedback' | 'external' | 'github_repo';
 export type ProcessingStage = 'raw' | 'extracting' | 'extracted' | 'synthesizing' | 'synthesized' | 'promoting' | 'completed' | 'failed';
+
+// ============================================================================
+// Consultant Types (Oracle Features)
+// ============================================================================
+
+export type DecisionStatus = 'pending' | 'parked' | 'researching' | 'decided' | 'implemented' | 'closed';
+
+export interface Decision {
+  id: string;
+  title: string;
+  context?: string;
+  project?: string;
+  status: DecisionStatus;
+  options: DecisionOption[];
+  decision?: string;
+  rationale?: string;
+  decidedBy?: string;
+  decidedAt?: number;
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface DecisionOption {
+  label: string;
+  description?: string;
+  pros: string[];
+  cons: string[];
+  recommended?: boolean;
+}
+
+export type TraceStatus = 'raw' | 'reviewed' | 'distilling' | 'distilled';
+export type TraceQueryType = 'general' | 'project' | 'pattern' | 'evolution';
+
+export interface Trace {
+  id: string;
+  query: string;
+  queryType: TraceQueryType;
+  project?: string;
+  status: TraceStatus;
+  depth: number;
+  parentTraceId?: string;
+  foundFiles: FoundFile[];
+  foundCommits: FoundCommit[];
+  foundIssues: FoundIssue[];
+  foundLearnings: string[];
+  agentCount?: number;
+  durationMs?: number;
+  createdAt: number;
+}
+
+export interface FoundFile {
+  path: string;
+  type: 'learning' | 'retro' | 'resonance' | 'other';
+  confidence: 'high' | 'medium' | 'low';
+  matchReason?: string;
+}
+
+export interface FoundCommit {
+  hash: string;
+  shortHash: string;
+  message: string;
+  date?: string;
+}
+
+export interface FoundIssue {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  url?: string;
+}
+
+export type ThreadStatus = 'active' | 'pending' | 'answered' | 'closed';
+
+export interface Thread {
+  id: number;
+  title: string;
+  status: ThreadStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ThreadMessage {
+  id: number;
+  threadId: number;
+  role: 'human' | 'assistant';
+  content: string;
+  createdAt: number;
+}
 
 export interface Observation {
   id: number;
@@ -203,6 +318,10 @@ const DEFAULT_CONFIG: Required<PanyaConfig> = {
   dbPath: join(homedir(), '.panya', 'panya.db'),
   dataDir: join(homedir(), '.panya'),
   createIfMissing: true,
+  enableChroma: false,
+  chromaCollectionName: 'panya-brain',
+  chromaDataDir: join(homedir(), '.panya', 'chroma'),
+  chromaPythonVersion: '3.12',
 };
 
 // ============================================================================
@@ -212,6 +331,8 @@ const DEFAULT_CONFIG: Required<PanyaConfig> = {
 export class PanyaDatabase {
   private db: Database;
   private config: Required<PanyaConfig>;
+  private chroma: ChromaMcpClient | null = null;
+  private chromaInitialized: boolean = false;
 
   constructor(config?: PanyaConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -225,9 +346,9 @@ export class PanyaDatabase {
     // Ensure data directory exists
     await mkdir(this.config.dataDir, { recursive: true });
 
-    // Create tables
+    // Create tables (backwards compatible - may already exist with old schema)
     this.db.exec(`
-      -- Documents table
+      -- Documents table (base schema without constraints that might conflict)
       CREATE TABLE IF NOT EXISTS documents (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -395,6 +516,9 @@ export class PanyaDatabase {
 
     // Run ontology migration
     await this.runOntologyMigration();
+
+    // Run oracle features migration (decisions, traces, threads)
+    await this.runOracleMigration();
   }
 
   /**
@@ -576,7 +700,7 @@ export class PanyaDatabase {
 
       CREATE TABLE IF NOT EXISTS observations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        observation_type TEXT NOT NULL CHECK (observation_type IN ('conversation', 'file_change', 'search', 'feedback', 'external')),
+        observation_type TEXT NOT NULL CHECK (observation_type IN ('conversation', 'file_change', 'search', 'feedback', 'external', 'github_repo')),
         content TEXT NOT NULL,
         source_id TEXT,
         metadata TEXT,
@@ -614,6 +738,27 @@ export class PanyaDatabase {
     try {
       this.db.exec(`ALTER TABLE temporal_data ADD COLUMN decay_immunity_until INTEGER`);
     } catch { /* Column may already exist */ }
+
+    // Add scope column (003-scope migration)
+    try {
+      this.db.exec(`ALTER TABLE documents ADD COLUMN scope TEXT NOT NULL DEFAULT 'common' CHECK (scope IN ('common', 'personal'))`);
+    } catch { /* Column may already exist */ }
+
+    // Rename concepts to tags (if old column exists, migrate it)
+    try {
+      // Check if 'tags' column exists
+      const hasTagsCol = this.db.query<any, []>(`PRAGMA table_info(documents)`).all().some((c: any) => c.name === 'tags');
+      if (!hasTagsCol) {
+        // First try to add tags column
+        try {
+          this.db.exec(`ALTER TABLE documents ADD COLUMN tags TEXT DEFAULT '[]'`);
+        } catch { /* Column may already exist */ }
+        // Then copy from concepts if exists
+        try {
+          this.db.exec(`UPDATE documents SET tags = concepts WHERE concepts IS NOT NULL AND tags = '[]'`);
+        } catch { /* concepts column may not exist */ }
+      }
+    } catch { /* Already migrated */ }
 
     // Insert default promotion rules
     this.db.exec(`
@@ -673,25 +818,151 @@ export class PanyaDatabase {
     `);
   }
 
+  /**
+   * Run Oracle features migration (003-oracle)
+   * Adds tables for consultation, decisions, traces, threads
+   */
+  private async runOracleMigration(): Promise<void> {
+    const now = Date.now();
+
+    // Check if already migrated
+    const existing = this.db.query<{ name: string }, [string]>(
+      'SELECT name FROM migrations WHERE name = ?'
+    ).get('003-oracle');
+
+    if (existing) return;
+
+    this.db.exec(`
+      -- ================================================================
+      -- DECISIONS: Track decisions with options and rationale
+      -- ================================================================
+
+      CREATE TABLE IF NOT EXISTS decisions (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        context TEXT,
+        project TEXT,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'parked', 'researching', 'decided', 'implemented', 'closed')),
+        options TEXT DEFAULT '[]',
+        decision TEXT,
+        rationale TEXT,
+        decided_by TEXT,
+        decided_at INTEGER,
+        tags TEXT DEFAULT '[]',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status);
+      CREATE INDEX IF NOT EXISTS idx_decisions_project ON decisions(project);
+
+      -- ================================================================
+      -- TRACES: Log discovery sessions with dig points
+      -- ================================================================
+
+      CREATE TABLE IF NOT EXISTS traces (
+        id TEXT PRIMARY KEY,
+        query TEXT NOT NULL,
+        query_type TEXT NOT NULL DEFAULT 'general' CHECK (query_type IN ('general', 'project', 'pattern', 'evolution')),
+        project TEXT,
+        status TEXT NOT NULL DEFAULT 'raw' CHECK (status IN ('raw', 'reviewed', 'distilling', 'distilled')),
+        depth INTEGER NOT NULL DEFAULT 0,
+        parent_trace_id TEXT,
+        found_files TEXT DEFAULT '[]',
+        found_commits TEXT DEFAULT '[]',
+        found_issues TEXT DEFAULT '[]',
+        found_learnings TEXT DEFAULT '[]',
+        agent_count INTEGER,
+        duration_ms INTEGER,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (parent_trace_id) REFERENCES traces(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_traces_query ON traces(query);
+      CREATE INDEX IF NOT EXISTS idx_traces_project ON traces(project);
+      CREATE INDEX IF NOT EXISTS idx_traces_status ON traces(status);
+
+      -- ================================================================
+      -- THREADS: Multi-turn discussions
+      -- ================================================================
+
+      CREATE TABLE IF NOT EXISTS threads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'pending', 'answered', 'closed')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_threads_status ON threads(status);
+
+      CREATE TABLE IF NOT EXISTS thread_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        thread_id INTEGER NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('human', 'assistant')),
+        content TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (thread_id) REFERENCES threads(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_thread_messages_thread ON thread_messages(thread_id);
+    `);
+
+    // Add is_principle column to documents if not exists
+    try {
+      this.db.exec(`ALTER TABLE documents ADD COLUMN is_principle INTEGER DEFAULT 0`);
+    } catch { /* Column may already exist */ }
+
+    try {
+      this.db.exec(`ALTER TABLE documents ADD COLUMN principle_type TEXT`);
+    } catch { /* Column may already exist */ }
+
+    // Record migration
+    this.db.exec(`
+      INSERT INTO migrations (name, applied_at) VALUES ('003-oracle', ${now})
+    `);
+  }
+
   // ==========================================================================
   // Document Operations
   // ==========================================================================
 
   insertDocument(doc: Omit<Document, 'createdAt' | 'updatedAt'>): string {
     const now = Date.now();
-    const stmt = this.db.prepare(`
-      INSERT INTO documents (id, type, source_file, content, concepts, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
-      doc.id,
-      doc.type,
-      doc.sourceFile,
-      doc.content || '',
-      JSON.stringify(doc.concepts),
-      now,
-      now
-    );
+
+    // Check if new schema columns exist
+    const columns = this.db.query<any, []>(`PRAGMA table_info(documents)`).all();
+    const hasScope = columns.some((c: any) => c.name === 'scope');
+    const hasTags = columns.some((c: any) => c.name === 'tags');
+
+    if (hasScope && hasTags) {
+      // New schema
+      const stmt = this.db.prepare(`
+        INSERT INTO documents (id, type, scope, source_file, content, tags, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(
+        doc.id,
+        doc.type,
+        doc.scope || 'common',
+        doc.sourceFile,
+        doc.content || '',
+        JSON.stringify(doc.tags || []),
+        now,
+        now
+      );
+    } else {
+      // Old schema - use concepts column
+      const stmt = this.db.prepare(`
+        INSERT INTO documents (id, type, source_file, content, concepts, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(
+        doc.id,
+        doc.type,
+        doc.sourceFile,
+        doc.content || '',
+        JSON.stringify(doc.tags || []),
+        now,
+        now
+      );
+    }
 
     // Index in FTS
     if (doc.content) {
@@ -710,9 +981,22 @@ export class PanyaDatabase {
 
     if (!result) return null;
 
+    // Handle both old (concepts) and new (tags) schemas
+    const tags = result.tags
+      ? JSON.parse(result.tags)
+      : result.concepts
+        ? JSON.parse(result.concepts)
+        : [];
+
     return {
-      ...result,
-      concepts: JSON.parse(result.concepts || '[]'),
+      id: result.id,
+      type: result.type as PanyaDocType,
+      scope: (result.scope || 'common') as PanyaScope,
+      sourceFile: result.source_file,
+      content: result.content,
+      tags,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
     };
   }
 
@@ -723,20 +1007,45 @@ export class PanyaDatabase {
   /**
    * List all documents (for graph building)
    */
-  listAllDocuments(limit: number = 500): Document[] {
-    const results = this.db.query<any, []>(`
-      SELECT * FROM documents
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-    `).all();
+  listAllDocuments(limit: number = 500, scope?: PanyaScope): Document[] {
+    // Check if scope column exists
+    const columns = this.db.query<any, []>(`PRAGMA table_info(documents)`).all();
+    const hasScope = columns.some((c: any) => c.name === 'scope');
 
-    return results.map(r => ({
-      ...r,
-      concepts: JSON.parse(r.concepts || '[]'),
-    }));
+    // When scope column doesn't exist, all docs are treated as 'common'
+    // So 'personal' filter should return empty
+    if (scope === 'personal' && !hasScope) {
+      return [];
+    }
+
+    let query = `SELECT * FROM documents`;
+    if (scope && hasScope) query += ` WHERE scope = '${scope}'`;
+    query += ` ORDER BY created_at DESC LIMIT ${limit}`;
+
+    const results = this.db.query<any, []>(query).all();
+
+    return results.map(r => {
+      // Handle both old (concepts) and new (tags) schemas
+      const tags = r.tags
+        ? JSON.parse(r.tags)
+        : r.concepts
+          ? JSON.parse(r.concepts)
+          : [];
+
+      return {
+        id: r.id,
+        type: r.type as PanyaDocType,
+        scope: (r.scope || 'common') as PanyaScope,
+        sourceFile: r.source_file,
+        content: r.content,
+        tags,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
   }
 
-  searchFTS(query: string, limit: number = 10): Document[] {
+  searchFTS(query: string, limit: number = 10, scope?: PanyaScope): Document[] {
     const keywords = query
       .toLowerCase()
       .replace(/[^\w\s]/g, '')
@@ -748,6 +1057,11 @@ export class PanyaDatabase {
 
     const searchQuery = keywords.map(k => `"${k}"`).join(' OR ');
 
+    // Check if scope column exists
+    const columns = this.db.query<any, []>(`PRAGMA table_info(documents)`).all();
+    const hasScope = columns.some((c: any) => c.name === 'scope');
+    const scopeFilter = (scope && hasScope) ? ` AND d.scope = '${scope}'` : '';
+
     try {
       const results = this.db.query<any, []>(`
         SELECT d.* FROM documents d
@@ -755,15 +1069,267 @@ export class PanyaDatabase {
           SELECT id FROM documents_fts
           WHERE documents_fts MATCH '${searchQuery}'
           LIMIT ${limit}
-        )
+        )${scopeFilter}
       `).all();
 
-      return results.map(r => ({
-        ...r,
-        concepts: JSON.parse(r.concepts || '[]'),
-      }));
+      return results.map(r => {
+        // Handle both old (concepts) and new (tags) schemas
+        const tags = r.tags
+          ? JSON.parse(r.tags)
+          : r.concepts
+            ? JSON.parse(r.concepts)
+            : [];
+
+        return {
+          id: r.id,
+          type: r.type as PanyaDocType,
+          scope: (r.scope || 'common') as PanyaScope,
+          sourceFile: r.source_file,
+          content: r.content,
+          tags,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        };
+      });
     } catch {
       return [];
+    }
+  }
+
+  // ==========================================================================
+  // ChromaDB / Vector Search Operations
+  // ==========================================================================
+
+  /**
+   * Initialize ChromaDB connection
+   */
+  async initChroma(): Promise<boolean> {
+    if (!this.config.enableChroma) {
+      console.log('[panya-db] ChromaDB disabled in config');
+      return false;
+    }
+
+    if (this.chromaInitialized && this.chroma) {
+      return true;
+    }
+
+    try {
+      this.chroma = new ChromaMcpClient({
+        collectionName: this.config.chromaCollectionName,
+        dataDir: this.config.chromaDataDir,
+        pythonVersion: this.config.chromaPythonVersion,
+      });
+
+      await this.chroma.connect();
+      await this.chroma.ensureCollection();
+      this.chromaInitialized = true;
+      console.log('[panya-db] ChromaDB initialized');
+      return true;
+    } catch (error) {
+      console.error('[panya-db] ChromaDB init failed:', error);
+      this.chroma = null;
+      this.chromaInitialized = false;
+      return false;
+    }
+  }
+
+  /**
+   * Check if ChromaDB is available
+   */
+  isChromaEnabled(): boolean {
+    return this.chromaInitialized && this.chroma !== null;
+  }
+
+  /**
+   * Get ChromaDB stats
+   */
+  async getChromaStats(): Promise<{ count: number; connected: boolean } | null> {
+    if (!this.chroma) {
+      return null;
+    }
+    return this.chroma.getStats();
+  }
+
+  /**
+   * Search using vector similarity (ChromaDB)
+   */
+  async searchVector(query: string, limit: number = 10): Promise<Document[]> {
+    if (!this.chroma) {
+      console.warn('[panya-db] ChromaDB not initialized, falling back to FTS');
+      return this.searchFTS(query, limit);
+    }
+
+    try {
+      const results = await this.chroma.query(query, limit);
+
+      // Convert ChromaDB results to Documents
+      const documents: Document[] = [];
+      for (const id of results.ids) {
+        const doc = this.getDocument(id);
+        if (doc) {
+          documents.push(doc);
+        }
+      }
+
+      return documents;
+    } catch (error) {
+      console.error('[panya-db] Vector search failed:', error);
+      return this.searchFTS(query, limit);
+    }
+  }
+
+  /**
+   * Hybrid search combining FTS and Vector
+   * Returns results ranked by combined score
+   */
+  async hybridSearch(
+    query: string,
+    limit: number = 10,
+    ftsWeight: number = 0.4,
+    vectorWeight: number = 0.6
+  ): Promise<HybridSearchResult[]> {
+    // Get FTS results
+    const ftsResults = this.searchFTS(query, limit * 2);
+
+    // Get Vector results if available
+    let vectorResults: Document[] = [];
+    let vectorDistances: Map<string, number> = new Map();
+
+    if (this.chroma) {
+      try {
+        const chromaResults = await this.chroma.query(query, limit * 2);
+        for (let i = 0; i < chromaResults.ids.length; i++) {
+          const id = chromaResults.ids[i];
+          const distance = chromaResults.distances[i];
+          vectorDistances.set(id, distance);
+
+          const doc = this.getDocument(id);
+          if (doc) {
+            vectorResults.push(doc);
+          }
+        }
+      } catch (error) {
+        console.error('[panya-db] Vector search in hybrid failed:', error);
+      }
+    }
+
+    // Combine and score results
+    const scoreMap = new Map<string, HybridSearchResult>();
+
+    // Score FTS results (position-based: first = highest score)
+    ftsResults.forEach((doc, index) => {
+      const ftsScore = 1 - (index / ftsResults.length);
+      scoreMap.set(doc.id, {
+        id: doc.id,
+        document: doc,
+        ftsScore,
+        vectorScore: undefined,
+        combinedScore: ftsScore * ftsWeight,
+      });
+    });
+
+    // Score Vector results (distance-based: lower distance = higher score)
+    vectorResults.forEach((doc) => {
+      const distance = vectorDistances.get(doc.id) || 1;
+      // Convert distance to score (0-1 range, lower distance = higher score)
+      const vectorScore = Math.max(0, 1 - distance);
+
+      if (scoreMap.has(doc.id)) {
+        const existing = scoreMap.get(doc.id)!;
+        existing.vectorScore = vectorScore;
+        existing.combinedScore = (existing.ftsScore || 0) * ftsWeight + vectorScore * vectorWeight;
+      } else {
+        scoreMap.set(doc.id, {
+          id: doc.id,
+          document: doc,
+          ftsScore: undefined,
+          vectorScore,
+          combinedScore: vectorScore * vectorWeight,
+        });
+      }
+    });
+
+    // Sort by combined score and return top results
+    const results = Array.from(scoreMap.values())
+      .sort((a, b) => b.combinedScore - a.combinedScore)
+      .slice(0, limit);
+
+    return results;
+  }
+
+  /**
+   * Index a single document to ChromaDB
+   */
+  async indexDocumentToChroma(doc: Document): Promise<boolean> {
+    if (!this.chroma) {
+      return false;
+    }
+
+    try {
+      await this.chroma.addDocument({
+        id: doc.id,
+        document: `${doc.content || ''} ${doc.tags.join(' ')}`.trim(),
+        metadata: {
+          type: doc.type,
+          scope: doc.scope,
+          sourceFile: doc.sourceFile,
+          createdAt: doc.createdAt,
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error('[panya-db] Failed to index document to ChromaDB:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Index all documents to ChromaDB
+   */
+  async indexAllToChroma(batchSize: number = 100): Promise<{ indexed: number; failed: number }> {
+    if (!this.chroma) {
+      return { indexed: 0, failed: 0 };
+    }
+
+    const allDocs = this.listAllDocuments(10000);
+    let indexed = 0;
+    let failed = 0;
+
+    // Process in batches
+    for (let i = 0; i < allDocs.length; i += batchSize) {
+      const batch = allDocs.slice(i, i + batchSize);
+      const chromaDocs: ChromaDocument[] = batch.map((doc: Document) => ({
+        id: doc.id,
+        document: `${doc.content || ''} ${doc.tags.join(' ')}`.trim(),
+        metadata: {
+          type: doc.type,
+          scope: doc.scope,
+          sourceFile: doc.sourceFile,
+          createdAt: doc.createdAt,
+        },
+      }));
+
+      try {
+        await this.chroma.addDocuments(chromaDocs);
+        indexed += batch.length;
+      } catch (error) {
+        console.error(`[panya-db] Batch ${Math.floor(i / batchSize) + 1} failed:`, error);
+        failed += batch.length;
+      }
+    }
+
+    console.log(`[panya-db] Indexed ${indexed} documents to ChromaDB (${failed} failed)`);
+    return { indexed, failed };
+  }
+
+  /**
+   * Close ChromaDB connection
+   */
+  async closeChroma(): Promise<void> {
+    if (this.chroma) {
+      await this.chroma.close();
+      this.chroma = null;
+      this.chromaInitialized = false;
     }
   }
 
@@ -1446,5 +2012,523 @@ export class PanyaDatabase {
       type: 'supersedes' as any,
       confidence: 1.0,
     });
+  }
+
+  // ==========================================================================
+  // Export/Import: For Creating New Robin Instances
+  // ==========================================================================
+
+  /**
+   * Export common knowledge for creating a new Robin
+   * Returns only 'common' scope documents that can be shared
+   */
+  exportCommonKnowledge(): {
+    version: string;
+    exportedAt: number;
+    documents: Document[];
+    entities: Entity[];
+    patterns: DetectedPattern[];
+    entityTypes: EntityType[];
+    relationshipTypes: RelationshipType[];
+  } {
+    const documents = this.listAllDocuments(1000, 'common');
+
+    const entities = this.db.query<any, []>(`
+      SELECT * FROM entities
+    `).all().map(r => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      normalizedName: r.normalized_name,
+      mentionCount: r.mention_count,
+      firstSeen: r.first_seen,
+      lastSeen: r.last_seen,
+    }));
+
+    const patterns = this.getPatterns('validated', 100);
+    const entityTypes = this.getEntityTypes();
+    const relationshipTypes = this.getRelationshipTypes();
+
+    return {
+      version: '1.0',
+      exportedAt: Date.now(),
+      documents,
+      entities,
+      patterns,
+      entityTypes,
+      relationshipTypes,
+    };
+  }
+
+  /**
+   * Import common knowledge from another Robin
+   * Used when creating a new Robin instance
+   */
+  importCommonKnowledge(data: ReturnType<typeof this.exportCommonKnowledge>): {
+    imported: { documents: number; entities: number; patterns: number };
+    skipped: { documents: number; entities: number; patterns: number };
+  } {
+    const result = {
+      imported: { documents: 0, entities: 0, patterns: 0 },
+      skipped: { documents: 0, entities: 0, patterns: 0 },
+    };
+
+    // Import documents
+    for (const doc of data.documents) {
+      try {
+        // Check if already exists
+        const existing = this.getDocument(doc.id);
+        if (existing) {
+          result.skipped.documents++;
+          continue;
+        }
+
+        this.insertDocument({
+          id: doc.id,
+          type: doc.type,
+          scope: 'common', // Force common scope
+          sourceFile: doc.sourceFile,
+          content: doc.content,
+          tags: doc.tags,
+        });
+        result.imported.documents++;
+      } catch {
+        result.skipped.documents++;
+      }
+    }
+
+    // Import entities
+    for (const entity of data.entities) {
+      try {
+        const existing = this.getEntity(entity.id);
+        if (existing) {
+          result.skipped.entities++;
+          continue;
+        }
+
+        this.upsertEntity({
+          id: entity.id,
+          name: entity.name,
+          type: entity.type as Entity['type'],
+          normalizedName: entity.normalizedName,
+        });
+        result.imported.entities++;
+      } catch {
+        result.skipped.entities++;
+      }
+    }
+
+    // Import patterns
+    for (const pattern of data.patterns) {
+      try {
+        this.savePattern({
+          patternType: pattern.patternType,
+          confidence: pattern.confidence,
+          documentIds: pattern.documentIds,
+          description: pattern.description,
+          metadata: pattern.metadata,
+          status: 'validated', // Import as validated
+        });
+        result.imported.patterns++;
+      } catch {
+        result.skipped.patterns++;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get count of documents by scope
+   */
+  getDocumentCountByScope(): { common: number; personal: number } {
+    // Check if scope column exists
+    const columns = this.db.query<any, []>(`PRAGMA table_info(documents)`).all();
+    const hasScope = columns.some((c: any) => c.name === 'scope');
+
+    if (!hasScope) {
+      // Old schema - all documents treated as common
+      const total = this.db.query<{ count: number }, []>(
+        `SELECT COUNT(*) as count FROM documents`
+      ).get();
+      return {
+        common: total?.count || 0,
+        personal: 0,
+      };
+    }
+
+    const common = this.db.query<{ count: number }, []>(
+      `SELECT COUNT(*) as count FROM documents WHERE scope = 'common'`
+    ).get();
+    const personal = this.db.query<{ count: number }, []>(
+      `SELECT COUNT(*) as count FROM documents WHERE scope = 'personal'`
+    ).get();
+
+    return {
+      common: common?.count || 0,
+      personal: personal?.count || 0,
+    };
+  }
+
+  // ==========================================================================
+  // Decision Operations
+  // ==========================================================================
+
+  createDecision(decision: Omit<Decision, 'createdAt' | 'updatedAt'>): string {
+    const now = Date.now();
+    const stmt = this.db.prepare(`
+      INSERT INTO decisions (id, title, context, project, status, options, decision, rationale, decided_by, decided_at, tags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      decision.id,
+      decision.title,
+      decision.context || null,
+      decision.project || null,
+      decision.status,
+      JSON.stringify(decision.options || []),
+      decision.decision || null,
+      decision.rationale || null,
+      decision.decidedBy || null,
+      decision.decidedAt || null,
+      JSON.stringify(decision.tags || []),
+      now,
+      now
+    );
+    return decision.id;
+  }
+
+  getDecision(id: string): Decision | null {
+    const result = this.db.query<any, [string]>(`
+      SELECT * FROM decisions WHERE id = ?
+    `).get(id);
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      title: result.title,
+      context: result.context,
+      project: result.project,
+      status: result.status as DecisionStatus,
+      options: JSON.parse(result.options || '[]'),
+      decision: result.decision,
+      rationale: result.rationale,
+      decidedBy: result.decided_by,
+      decidedAt: result.decided_at,
+      tags: JSON.parse(result.tags || '[]'),
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  listDecisions(filters?: {
+    status?: DecisionStatus;
+    project?: string;
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+  }): Decision[] {
+    let query = 'SELECT * FROM decisions WHERE 1=1';
+    if (filters?.status) query += ` AND status = '${filters.status}'`;
+    if (filters?.project) query += ` AND project = '${filters.project}'`;
+    query += ' ORDER BY created_at DESC';
+    if (filters?.limit) query += ` LIMIT ${filters.limit}`;
+    if (filters?.offset) query += ` OFFSET ${filters.offset}`;
+
+    const results = this.db.query<any, []>(query).all();
+    return results.map(r => ({
+      id: r.id,
+      title: r.title,
+      context: r.context,
+      project: r.project,
+      status: r.status as DecisionStatus,
+      options: JSON.parse(r.options || '[]'),
+      decision: r.decision,
+      rationale: r.rationale,
+      decidedBy: r.decided_by,
+      decidedAt: r.decided_at,
+      tags: JSON.parse(r.tags || '[]'),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  }
+
+  updateDecision(id: string, update: Partial<Omit<Decision, 'id' | 'createdAt' | 'updatedAt'>>): void {
+    const now = Date.now();
+    const sets: string[] = [`updated_at = ${now}`];
+
+    if (update.title !== undefined) sets.push(`title = '${update.title.replace(/'/g, "''")}'`);
+    if (update.context !== undefined) sets.push(`context = ${update.context ? `'${update.context.replace(/'/g, "''")}'` : 'NULL'}`);
+    if (update.project !== undefined) sets.push(`project = ${update.project ? `'${update.project}'` : 'NULL'}`);
+    if (update.status !== undefined) sets.push(`status = '${update.status}'`);
+    if (update.options !== undefined) sets.push(`options = '${JSON.stringify(update.options)}'`);
+    if (update.decision !== undefined) sets.push(`decision = ${update.decision ? `'${update.decision.replace(/'/g, "''")}'` : 'NULL'}`);
+    if (update.rationale !== undefined) sets.push(`rationale = ${update.rationale ? `'${update.rationale.replace(/'/g, "''")}'` : 'NULL'}`);
+    if (update.decidedBy !== undefined) sets.push(`decided_by = ${update.decidedBy ? `'${update.decidedBy}'` : 'NULL'}`);
+    if (update.decidedAt !== undefined) sets.push(`decided_at = ${update.decidedAt || 'NULL'}`);
+    if (update.tags !== undefined) sets.push(`tags = '${JSON.stringify(update.tags)}'`);
+
+    this.db.exec(`UPDATE decisions SET ${sets.join(', ')} WHERE id = '${id}'`);
+  }
+
+  // ==========================================================================
+  // Trace Operations
+  // ==========================================================================
+
+  createTrace(trace: Omit<Trace, 'createdAt'>): string {
+    const now = Date.now();
+    const stmt = this.db.prepare(`
+      INSERT INTO traces (id, query, query_type, project, status, depth, parent_trace_id, found_files, found_commits, found_issues, found_learnings, agent_count, duration_ms, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      trace.id,
+      trace.query,
+      trace.queryType,
+      trace.project || null,
+      trace.status,
+      trace.depth,
+      trace.parentTraceId || null,
+      JSON.stringify(trace.foundFiles || []),
+      JSON.stringify(trace.foundCommits || []),
+      JSON.stringify(trace.foundIssues || []),
+      JSON.stringify(trace.foundLearnings || []),
+      trace.agentCount || null,
+      trace.durationMs || null,
+      now
+    );
+    return trace.id;
+  }
+
+  getTrace(id: string): Trace | null {
+    const result = this.db.query<any, [string]>(`
+      SELECT * FROM traces WHERE id = ?
+    `).get(id);
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      query: result.query,
+      queryType: result.query_type as TraceQueryType,
+      project: result.project,
+      status: result.status as TraceStatus,
+      depth: result.depth,
+      parentTraceId: result.parent_trace_id,
+      foundFiles: JSON.parse(result.found_files || '[]'),
+      foundCommits: JSON.parse(result.found_commits || '[]'),
+      foundIssues: JSON.parse(result.found_issues || '[]'),
+      foundLearnings: JSON.parse(result.found_learnings || '[]'),
+      agentCount: result.agent_count,
+      durationMs: result.duration_ms,
+      createdAt: result.created_at,
+    };
+  }
+
+  listTraces(filters?: {
+    status?: TraceStatus;
+    project?: string;
+    query?: string;
+    depth?: number;
+    limit?: number;
+    offset?: number;
+  }): Trace[] {
+    let query = 'SELECT * FROM traces WHERE 1=1';
+    if (filters?.status) query += ` AND status = '${filters.status}'`;
+    if (filters?.project) query += ` AND project = '${filters.project}'`;
+    if (filters?.query) query += ` AND query LIKE '%${filters.query}%'`;
+    if (filters?.depth !== undefined) query += ` AND depth = ${filters.depth}`;
+    query += ' ORDER BY created_at DESC';
+    if (filters?.limit) query += ` LIMIT ${filters.limit}`;
+    if (filters?.offset) query += ` OFFSET ${filters.offset}`;
+
+    const results = this.db.query<any, []>(query).all();
+    return results.map(r => ({
+      id: r.id,
+      query: r.query,
+      queryType: r.query_type as TraceQueryType,
+      project: r.project,
+      status: r.status as TraceStatus,
+      depth: r.depth,
+      parentTraceId: r.parent_trace_id,
+      foundFiles: JSON.parse(r.found_files || '[]'),
+      foundCommits: JSON.parse(r.found_commits || '[]'),
+      foundIssues: JSON.parse(r.found_issues || '[]'),
+      foundLearnings: JSON.parse(r.found_learnings || '[]'),
+      agentCount: r.agent_count,
+      durationMs: r.duration_ms,
+      createdAt: r.created_at,
+    }));
+  }
+
+  updateTraceStatus(id: string, status: TraceStatus): void {
+    this.db.exec(`UPDATE traces SET status = '${status}' WHERE id = '${id}'`);
+  }
+
+  // ==========================================================================
+  // Thread Operations
+  // ==========================================================================
+
+  createThread(title: string): number {
+    const now = Date.now();
+    const stmt = this.db.prepare(`
+      INSERT INTO threads (title, status, created_at, updated_at)
+      VALUES (?, 'active', ?, ?)
+    `);
+    const result = stmt.run(title, now, now);
+    return Number(result.lastInsertRowid);
+  }
+
+  getThread(id: number): Thread | null {
+    const result = this.db.query<any, [number]>(`
+      SELECT * FROM threads WHERE id = ?
+    `).get(id);
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      title: result.title,
+      status: result.status as ThreadStatus,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  listThreads(filters?: {
+    status?: ThreadStatus;
+    limit?: number;
+    offset?: number;
+  }): Thread[] {
+    let query = 'SELECT * FROM threads WHERE 1=1';
+    if (filters?.status) query += ` AND status = '${filters.status}'`;
+    query += ' ORDER BY updated_at DESC';
+    if (filters?.limit) query += ` LIMIT ${filters.limit}`;
+    if (filters?.offset) query += ` OFFSET ${filters.offset}`;
+
+    const results = this.db.query<any, []>(query).all();
+    return results.map(r => ({
+      id: r.id,
+      title: r.title,
+      status: r.status as ThreadStatus,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  }
+
+  updateThreadStatus(id: number, status: ThreadStatus): void {
+    const now = Date.now();
+    this.db.exec(`UPDATE threads SET status = '${status}', updated_at = ${now} WHERE id = ${id}`);
+  }
+
+  addThreadMessage(threadId: number, role: 'human' | 'assistant', content: string): number {
+    const now = Date.now();
+    const stmt = this.db.prepare(`
+      INSERT INTO thread_messages (thread_id, role, content, created_at)
+      VALUES (?, ?, ?, ?)
+    `);
+    const result = stmt.run(threadId, role, content, now);
+
+    // Update thread's updated_at
+    this.db.exec(`UPDATE threads SET updated_at = ${now} WHERE id = ${threadId}`);
+
+    return Number(result.lastInsertRowid);
+  }
+
+  getThreadMessages(threadId: number, limit?: number): ThreadMessage[] {
+    let query = `SELECT * FROM thread_messages WHERE thread_id = ${threadId} ORDER BY created_at ASC`;
+    if (limit) query += ` LIMIT ${limit}`;
+
+    const results = this.db.query<any, []>(query).all();
+    return results.map(r => ({
+      id: r.id,
+      threadId: r.thread_id,
+      role: r.role as 'human' | 'assistant',
+      content: r.content,
+      createdAt: r.created_at,
+    }));
+  }
+
+  // ==========================================================================
+  // Principle Operations (L4 Core with is_principle flag)
+  // ==========================================================================
+
+  /**
+   * Get all L4 Core documents marked as principles
+   */
+  getPrinciples(limit: number = 50): Document[] {
+    const results = this.db.query<any, [number]>(`
+      SELECT d.* FROM documents d
+      JOIN knowledge_levels kl ON d.id = kl.document_id
+      WHERE kl.level = 4 OR d.is_principle = 1
+      ORDER BY kl.confidence DESC, d.created_at DESC
+      LIMIT ?
+    `).all(limit);
+
+    return results.map(r => {
+      const tags = r.tags
+        ? JSON.parse(r.tags)
+        : r.concepts
+          ? JSON.parse(r.concepts)
+          : [];
+
+      return {
+        id: r.id,
+        type: r.type as PanyaDocType,
+        scope: (r.scope || 'common') as PanyaScope,
+        sourceFile: r.source_file,
+        content: r.content,
+        tags,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
+  }
+
+  /**
+   * Get a random principle for reflection
+   */
+  getRandomPrinciple(): Document | null {
+    const result = this.db.query<any, []>(`
+      SELECT d.* FROM documents d
+      JOIN knowledge_levels kl ON d.id = kl.document_id
+      WHERE kl.level = 4 OR d.is_principle = 1
+      ORDER BY RANDOM()
+      LIMIT 1
+    `).get();
+
+    if (!result) return null;
+
+    const tags = result.tags
+      ? JSON.parse(result.tags)
+      : result.concepts
+        ? JSON.parse(result.concepts)
+        : [];
+
+    return {
+      id: result.id,
+      type: result.type as PanyaDocType,
+      scope: (result.scope || 'common') as PanyaScope,
+      sourceFile: result.source_file,
+      content: result.content,
+      tags,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
+  }
+
+  /**
+   * Mark a document as a principle
+   */
+  markAsPrinciple(documentId: string, principleType?: string): void {
+    const now = Date.now();
+    this.db.exec(`
+      UPDATE documents SET
+        is_principle = 1,
+        principle_type = ${principleType ? `'${principleType}'` : 'NULL'},
+        updated_at = ${now}
+      WHERE id = '${documentId}'
+    `);
   }
 }
