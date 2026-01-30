@@ -616,6 +616,121 @@
       animation: spin 1s linear infinite;
     }
 
+    .btn-spinner {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .spinner-icon {
+      width: 18px;
+      height: 18px;
+      animation: spin 1s linear infinite;
+    }
+
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-hover);
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+      border: 2px solid #bbb;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 1px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #22c55e;
+      border-color: #16a34a;
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .toggle-switch:hover .toggle-slider {
+      border-color: #999;
+    }
+
+    .toggle-switch input:checked:hover + .toggle-slider {
+      border-color: #15803d;
+    }
+
+    .text-muted {
+      color: var(--text-muted);
+    }
+
     /* Guide Styles */
     .guide-container {
       max-width: 900px;
@@ -1542,8 +1657,67 @@
               <label class="form-label" id="obsContentLabel">Content</label>
               <textarea class="form-textarea" id="obsContent" placeholder="https://github.com/owner/repo"></textarea>
             </div>
-            <button type="submit" class="btn btn-primary">Add Observation</button>
+            <button type="submit" class="btn btn-primary" id="obsSubmitBtn">
+              <span id="obsSubmitText">Add Observation</span>
+              <span id="obsSubmitSpinner" class="btn-spinner" style="display: none;">
+                <svg class="spinner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/>
+                </svg>
+                Processing...
+              </span>
+            </button>
           </form>
+        </div>
+
+        <!-- Discovery Worker Status -->
+        <div class="card" style="margin-top: 1.5rem;">
+          <div class="card-header">
+            <h3 class="card-title">Auto-Discovery</h3>
+            <span class="badge" id="discoveryBadge">Stopped</span>
+          </div>
+          <div class="card-body" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div id="discoveryInfo" style="flex: 1; min-width: 200px;">
+              <p style="margin: 0;">Automatically checks enabled observations for new content.</p>
+              <small class="text-muted" id="discoveryDetails">Not running</small>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-primary btn-sm" id="startDiscoveryBtn" onclick="startDiscovery()">Start</button>
+              <button class="btn btn-danger btn-sm" id="stopDiscoveryBtn" onclick="stopDiscovery()" disabled>Stop</button>
+              <button class="btn btn-secondary btn-sm" onclick="runDiscoveryNow()">Run Now</button>
+            </div>
+          </div>
+
+          <!-- Activity Log Toggle -->
+          <div class="card-footer" style="border-top: 1px solid var(--border-color); padding: 0.75rem 1.5rem;">
+            <button class="btn-link" onclick="toggleActivityLog()" style="display: flex; align-items: center; gap: 0.5rem; background: none; border: none; color: var(--accent-primary); cursor: pointer; font-size: 0.875rem;">
+              <span id="activityLogToggleIcon">▶</span>
+              <span>Activity Log</span>
+              <span id="activityLogCount" class="badge" style="margin-left: 0.5rem; font-size: 0.625rem;">0</span>
+            </button>
+          </div>
+
+          <!-- Collapsible Activity Log Panel -->
+          <div id="activityLogPanel" style="display: none; border-top: 1px solid var(--border-color); max-height: 300px; overflow-y: auto;">
+            <div style="padding: 0.5rem 1rem; display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
+              <small class="text-muted">Recent activity (newest first)</small>
+              <button class="btn-icon" onclick="clearActivityLog()" title="Clear Log" style="font-size: 0.75rem;">🗑</button>
+            </div>
+            <div id="activityLogList" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
+              <div class="empty-state" style="padding: 1rem; text-align: center; color: var(--text-muted);">No activity yet</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Observation History -->
+        <div class="card" style="margin-top: 1.5rem;">
+          <div class="card-header">
+            <h3 class="card-title">Recent Observations</h3>
+            <button class="btn-icon" onclick="loadObservations()" title="Refresh">↻</button>
+          </div>
+          <div id="observationList">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
         </div>
       </section>
 
@@ -1568,27 +1742,37 @@
 
         <div class="guide-tabs">
           <button class="guide-tab active" data-tab="overview">Overview</button>
+          <button class="guide-tab" data-tab="quickstart">Quick Start</button>
+          <button class="guide-tab" data-tab="discovery">Auto-Discovery</button>
           <button class="guide-tab" data-tab="levels">Knowledge Levels</button>
           <button class="guide-tab" data-tab="loop">Learning Loop</button>
           <button class="guide-tab" data-tab="patterns">Patterns</button>
-          <button class="guide-tab" data-tab="quickstart">Quick Start</button>
           <button class="guide-tab" data-tab="api">API Reference</button>
-          <button class="guide-tab" data-tab="identity">Identity</button>
         </div>
 
         <div class="guide-container">
           <!-- Overview -->
           <div class="guide-panel active" id="tab-overview">
             <div class="guide-card-body">
-              <h2 style="margin-bottom: 1rem;">What is Panya Ontology?</h2>
-              <p>Panya is a <strong>self-learning knowledge system</strong> that automatically:</p>
+              <h2 style="margin-bottom: 1rem;">What is Panya?</h2>
+              <p>Panya is a <strong>self-learning knowledge system</strong> that grows your knowledge base automatically.</p>
+
+              <h3 style="margin: 1.5rem 0 0.75rem;">Key Features</h3>
               <ul>
-                <li>Observes and captures information from conversations</li>
-                <li>Extracts entities and relationships</li>
-                <li>Detects patterns across your knowledge</li>
-                <li>Promotes high-quality knowledge to expert level</li>
-                <li>Decays unused information over time</li>
+                <li><strong>Add Observations</strong> — Feed GitHub repos, conversations, or any content</li>
+                <li><strong>Auto-Discovery</strong> — Automatically track repos for new commits</li>
+                <li><strong>Learning Loop</strong> — Process, extract, and synthesize knowledge</li>
+                <li><strong>Knowledge Levels</strong> — Knowledge evolves from L1 (Raw) → L4 (Expert)</li>
+                <li><strong>Pattern Detection</strong> — Find connections across your knowledge</li>
               </ul>
+
+              <h3 style="margin: 1.5rem 0 0.75rem;">How It Works</h3>
+              <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+                Add Observation → Auto-Process → Learning Loop → Knowledge Grows<br>
+                <span style="color: var(--text-muted);">     ↑                                              ↓</span><br>
+                <span style="color: var(--text-muted);">     └──── Auto-Discovery (checks for updates) ←────┘</span>
+              </div>
+
               <div class="guide-highlight" style="margin-top: 1.5rem;">
                 <strong>First Principle:</strong> Knowledge evolves through versioning, not deletion. Old information is superseded, never lost.
               </div>
@@ -1753,45 +1937,115 @@
                 <div class="quick-step">
                   <div class="quick-step-num">1</div>
                   <div class="quick-step-content">
-                    <h4>Add Your First Observation</h4>
-                    <p>Go to <strong>Add Observation</strong> → Enter some knowledge → Click "Add"</p>
+                    <h4>Add a GitHub Repository</h4>
+                    <p>Go to <strong>Add Observation</strong> → Select "GitHub Repository" → Paste URL → Click "Add Observation"</p>
+                    <small style="color: var(--text-muted);">The repo will be auto-processed immediately</small>
                   </div>
                 </div>
                 <div class="quick-step">
                   <div class="quick-step-num">2</div>
                   <div class="quick-step-content">
-                    <h4>Run the Learning Loop</h4>
-                    <p>Go to <strong>Learning Loop</strong> → Click "Run Loop"</p>
+                    <h4>Enable Auto-Discovery</h4>
+                    <p>In the observations table, <strong>toggle ON</strong> the auto-discover switch</p>
+                    <small style="color: var(--text-muted);">Panya will check for new commits every hour</small>
                   </div>
                 </div>
                 <div class="quick-step">
                   <div class="quick-step-num">3</div>
                   <div class="quick-step-content">
-                    <h4>Check the Dashboard</h4>
-                    <p>See your knowledge appear in L1 (Raw)</p>
+                    <h4>Start Discovery Worker</h4>
+                    <p>Click <strong>"Start"</strong> in the Auto-Discovery panel to run in background</p>
+                    <small style="color: var(--text-muted);">Or click "Run Now" for immediate check</small>
                   </div>
                 </div>
                 <div class="quick-step">
                   <div class="quick-step-num">4</div>
                   <div class="quick-step-content">
-                    <h4>Add More Knowledge</h4>
-                    <p>Keep adding related observations to build patterns</p>
+                    <h4>Check the Dashboard</h4>
+                    <p>Go to <strong>Dashboard</strong> → See your knowledge growing</p>
+                    <small style="color: var(--text-muted);">Documents start at L1 and promote over time</small>
                   </div>
                 </div>
                 <div class="quick-step">
                   <div class="quick-step-num">5</div>
                   <div class="quick-step-content">
-                    <h4>Detect Patterns</h4>
-                    <p>Go to <strong>Patterns</strong> → Click "Detect Patterns"</p>
+                    <h4>Let It Learn Overnight</h4>
+                    <p>Leave the Discovery Worker running → Wake up to new knowledge!</p>
+                    <small style="color: var(--text-muted);">New commits = new documents automatically</small>
                   </div>
                 </div>
-                <div class="quick-step">
-                  <div class="quick-step-num">6</div>
-                  <div class="quick-step-content">
-                    <h4>Validate & Watch It Grow</h4>
-                    <p>Validate correct patterns → Knowledge promotes to higher levels</p>
-                  </div>
+              </div>
+
+              <div class="guide-box" style="margin-top: 1.5rem;">
+                <h4>Supported Observation Types</h4>
+                <table class="api-table">
+                  <tr><td><strong>GitHub Repository</strong></td><td>Auto-discovery supported ✓</td></tr>
+                  <tr><td><strong>Conversation</strong></td><td>Manual add only</td></tr>
+                  <tr><td><strong>External</strong></td><td>Manual add only</td></tr>
+                  <tr><td><strong>Feedback</strong></td><td>Manual add only</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto-Discovery -->
+          <div class="guide-panel" id="tab-discovery">
+            <div class="guide-card-body">
+              <h2 style="margin-bottom: 1rem;">Auto-Discovery</h2>
+              <p>Auto-Discovery automatically checks your tracked sources for new content and creates documents.</p>
+
+              <h3 style="margin: 1.5rem 0 0.75rem;">How It Works</h3>
+              <div class="loop-diagram">
+                <div class="loop-step">
+                  <div class="loop-step-num">1</div>
+                  <div class="loop-step-name">ADD</div>
+                  <p>Add a GitHub repo observation</p>
                 </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">2</div>
+                  <div class="loop-step-name">ENABLE</div>
+                  <p>Toggle auto-discover ON</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">3</div>
+                  <div class="loop-step-name">CHECK</div>
+                  <p>Worker fetches new commits</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">4</div>
+                  <div class="loop-step-name">CREATE</div>
+                  <p>New documents generated</p>
+                </div>
+                <div class="loop-connector">↓</div>
+                <div class="loop-step">
+                  <div class="loop-step-num">5</div>
+                  <div class="loop-step-name">REPEAT</div>
+                  <p>Checks again after interval</p>
+                </div>
+              </div>
+
+              <h3 style="margin: 1.5rem 0 0.75rem;">Controls</h3>
+              <table class="api-table">
+                <tr><td><strong>Toggle Switch</strong></td><td>Enable/disable per observation</td></tr>
+                <tr><td><strong>↻ Button</strong></td><td>Manual check for one observation</td></tr>
+                <tr><td><strong>Start</strong></td><td>Start background worker</td></tr>
+                <tr><td><strong>Stop</strong></td><td>Stop background worker</td></tr>
+                <tr><td><strong>Run Now</strong></td><td>Check all enabled observations immediately</td></tr>
+              </table>
+
+              <h3 style="margin: 1.5rem 0 0.75rem;">GitHub Discovery</h3>
+              <p>For GitHub repositories, Panya fetches:</p>
+              <ul>
+                <li>Recent commits (SHA, author, message, date)</li>
+                <li>Creates a document for each new commit</li>
+                <li>Tracks last commit SHA to avoid duplicates</li>
+              </ul>
+
+              <div class="guide-highlight" style="margin-top: 1.5rem;">
+                <strong>Tip:</strong> Default check interval is 1 hour. The worker only checks observations with auto-discover enabled.
               </div>
             </div>
           </div>
@@ -1813,58 +2067,54 @@
               </div>
 
               <div class="api-section">
-                <h4>Ontology Endpoints</h4>
+                <h4>Observation Endpoints</h4>
+                <table class="api-table">
+                  <tr><td><code>GET /ontology/observations</code></td><td>List observations</td></tr>
+                  <tr><td><code>POST /ontology/observations</code></td><td>Add observation (auto-processes)</td></tr>
+                  <tr><td><code>PUT /ontology/observations/:id/autodiscover</code></td><td>Toggle auto-discover</td></tr>
+                  <tr><td><code>POST /ontology/observations/:id/discover</code></td><td>Manual discovery check</td></tr>
+                </table>
+              </div>
+
+              <div class="api-section">
+                <h4>Discovery Worker Endpoints</h4>
+                <table class="api-table">
+                  <tr><td><code>GET /ontology/discovery/status</code></td><td>Worker status</td></tr>
+                  <tr><td><code>POST /ontology/discovery/start</code></td><td>Start worker</td></tr>
+                  <tr><td><code>POST /ontology/discovery/stop</code></td><td>Stop worker</td></tr>
+                  <tr><td><code>GET /ontology/discovery/logs</code></td><td>Get activity logs</td></tr>
+                  <tr><td><code>DELETE /ontology/discovery/logs</code></td><td>Clear activity logs</td></tr>
+                  <tr><td><code>POST /ontology/discovery/run</code></td><td>Run check now</td></tr>
+                </table>
+              </div>
+
+              <div class="api-section">
+                <h4>Learning Loop Endpoints</h4>
                 <table class="api-table">
                   <tr><td><code>GET /ontology/stats</code></td><td>Full ontology statistics</td></tr>
                   <tr><td><code>GET /ontology/levels</code></td><td>Knowledge level stats</td></tr>
-                  <tr><td><code>POST /ontology/observations</code></td><td>Add observation</td></tr>
                   <tr><td><code>POST /ontology/loop/run</code></td><td>Run learning loop</td></tr>
                   <tr><td><code>GET /ontology/patterns</code></td><td>List patterns</td></tr>
                   <tr><td><code>POST /ontology/patterns/detect</code></td><td>Detect patterns</td></tr>
-                  <tr><td><code>GET /ontology/identity</code></td><td>Get Robin identity</td></tr>
                 </table>
               </div>
 
               <div class="guide-box" style="margin-top: 1.5rem;">
-                <h4>Example: Add Observation via API</h4>
+                <h4>Example: Add GitHub Repo</h4>
                 <pre><code>curl -X POST http://localhost:3100/ontology/observations \
   -H "Content-Type: application/json" \
-  -d '{"type": "conversation", "content": "TypeScript is great"}'</code></pre>
+  -d '{"type": "github_repo", "content": "https://github.com/owner/repo"}'</code></pre>
+              </div>
+
+              <div class="guide-box" style="margin-top: 1rem;">
+                <h4>Example: Enable Auto-Discovery</h4>
+                <pre><code>curl -X PUT http://localhost:3100/ontology/observations/1/autodiscover \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true, "intervalMs": 3600000}'</code></pre>
               </div>
             </div>
           </div>
 
-          <!-- Identity -->
-          <div class="guide-panel" id="tab-identity">
-            <div class="guide-card-body">
-              <h2 style="margin-bottom: 1rem;">Robin's Identity System</h2>
-              <p>Robin has <strong>protected identity facets</strong> that define her personality:</p>
-
-              <div class="facet-guide" style="margin-top: 1rem;">
-                <div class="facet-guide-item">
-                  <span class="facet-type-badge">personality</span>
-                  <p>Core character traits, first principles thinking</p>
-                </div>
-                <div class="facet-guide-item">
-                  <span class="facet-type-badge">voice</span>
-                  <p>Language style, pronouns, tone</p>
-                </div>
-                <div class="facet-guide-item">
-                  <span class="facet-type-badge">values</span>
-                  <p>Principles and beliefs</p>
-                </div>
-                <div class="facet-guide-item">
-                  <span class="facet-type-badge">relationship</span>
-                  <p>Memory of interactions, milestones, inside jokes</p>
-                </div>
-              </div>
-
-              <div class="guide-box warning" style="margin-top: 1.5rem;">
-                <h4>Locked Facets</h4>
-                <p>Core identity facets are <strong>locked</strong> and cannot be auto-modified. Changes require human validation to protect Robin's personality.</p>
-              </div>
-            </div>
-          </div>
 
         </div>
       </section>
@@ -1898,6 +2148,7 @@
         case 'patterns': refreshPatterns(); break;
         case 'graph': initGraph(); loadGraph(); break;
         case 'learning': refreshLoopStatus(); break;
+        case 'observe': loadObservations(); refreshDiscoveryStatus(); break;
         case 'identity': refreshIdentity(); break;
       }
     }
@@ -2123,6 +2374,9 @@
       e.preventDefault();
       const type = document.getElementById('obsType').value;
       const content = document.getElementById('obsContent').value;
+      const submitBtn = document.getElementById('obsSubmitBtn');
+      const submitText = document.getElementById('obsSubmitText');
+      const submitSpinner = document.getElementById('obsSubmitSpinner');
 
       if (!content.trim()) {
         showToast('Content is required', 'error');
@@ -2135,16 +2389,295 @@
         return;
       }
 
-      showToast(type === 'github_repo' ? 'Processing GitHub repo...' : 'Adding observation...');
+      // Show loading state
+      submitBtn.disabled = true;
+      submitText.style.display = 'none';
+      submitSpinner.style.display = 'inline-flex';
 
-      const data = await api('/ontology/observations', {
-        method: 'POST',
-        body: JSON.stringify({ type, content })
+      try {
+        const data = await api('/ontology/observations', {
+          method: 'POST',
+          body: JSON.stringify({ type, content, autoProcess: true })
+        });
+
+        if (data && data.success) {
+          const docsCreated = data.loopResult?.stages?.observe?.created || 0;
+          showToast(`✓ Observation processed! Created ${docsCreated} document${docsCreated !== 1 ? 's' : ''}`);
+          document.getElementById('obsContent').value = '';
+          loadObservations(); // Refresh the list
+          loadDashboard(); // Update stats
+        }
+      } finally {
+        // Hide loading state
+        submitBtn.disabled = false;
+        submitText.style.display = 'inline';
+        submitSpinner.style.display = 'none';
+      }
+    }
+
+    async function loadObservations() {
+      const container = document.getElementById('observationList');
+
+      const data = await api('/ontology/observations?limit=20');
+      if (!data || !data.observations) {
+        container.innerHTML = '<div class="empty-state">Failed to load observations</div>';
+        return;
+      }
+
+      if (data.observations.length === 0) {
+        container.innerHTML = '<div class="empty-state">No observations yet. Add your first one above!</div>';
+        return;
+      }
+
+      const statusColors = {
+        raw: 'var(--accent-blue)',
+        processing: 'var(--accent-warning)',
+        completed: 'var(--accent-success)',
+        failed: 'var(--accent-error)',
+      };
+
+      const statusIcons = {
+        raw: '⏳',
+        processing: '⚙️',
+        completed: '✓',
+        failed: '✗',
+      };
+
+      container.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Content</th>
+              <th>Status</th>
+              <th>Auto-Discover</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.observations.map(obs => `
+              <tr>
+                <td>#${obs.id}</td>
+                <td><span class="badge">${obs.observationType}</span></td>
+                <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${escapeHtml(obs.content.substring(0, 80))}${obs.content.length > 80 ? '...' : ''}
+                </td>
+                <td>
+                  <span style="color: ${statusColors[obs.processingStage] || 'inherit'}">
+                    ${statusIcons[obs.processingStage] || '?'} ${obs.processingStage}
+                  </span>
+                  ${obs.resultDocumentIds ? `<br><small>${obs.resultDocumentIds.length} docs</small>` : ''}
+                </td>
+                <td>
+                  ${obs.observationType === 'github_repo' ? `
+                    <label class="toggle-switch">
+                      <input type="checkbox" ${obs.autoDiscover ? 'checked' : ''}
+                             onchange="toggleAutoDiscover(${obs.id}, this.checked)">
+                      <span class="toggle-slider"></span>
+                    </label>
+                    ${obs.autoDiscover ? `<br><small>Every ${Math.round(obs.discoverIntervalMs / 60000)}m</small>` : ''}
+                    ${obs.lastDiscoveredAt ? `<br><small>Last: ${formatTimeAgo(obs.lastDiscoveredAt)}</small>` : ''}
+                  ` : '<span class="text-muted">-</span>'}
+                </td>
+                <td>
+                  ${obs.observationType === 'github_repo' ? `
+                    <button class="btn-icon" onclick="discoverNow(${obs.id})" title="Check for updates now">↻</button>
+                  ` : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function formatTimeAgo(timestamp) {
+      const diff = Date.now() - timestamp;
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 0) return days + 'd ago';
+      if (hours > 0) return hours + 'h ago';
+      if (mins > 0) return mins + 'm ago';
+      return 'just now';
+    }
+
+    async function toggleAutoDiscover(id, enabled) {
+      const data = await api(`/ontology/observations/${id}/autodiscover`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled, intervalMs: 3600000 })
       });
 
       if (data && data.success) {
-        showToast(`Observation added (ID: ${data.observationId}). Run Learning Loop to process.`);
-        document.getElementById('obsContent').value = '';
+        showToast(enabled ? 'Auto-discovery enabled' : 'Auto-discovery disabled');
+        loadObservations();
+      } else {
+        showToast(data?.error || 'Failed to update', 'error');
+        loadObservations(); // Refresh to reset checkbox
+      }
+    }
+
+    async function discoverNow(id) {
+      showToast('Checking for updates...');
+      const data = await api(`/ontology/observations/${id}/discover`, { method: 'POST' });
+
+      if (data && !data.error) {
+        if (data.newItems > 0) {
+          showToast(`Found ${data.newItems} new item(s)!`);
+          loadDashboard();
+        } else {
+          showToast('No new updates found');
+        }
+        loadObservations();
+      } else {
+        showToast(data?.error || 'Discovery failed', 'error');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Discovery Worker
+    async function refreshDiscoveryStatus() {
+      const data = await api('/ontology/discovery/status');
+      if (!data) return;
+
+      const badge = document.getElementById('discoveryBadge');
+      const details = document.getElementById('discoveryDetails');
+      const startBtn = document.getElementById('startDiscoveryBtn');
+      const stopBtn = document.getElementById('stopDiscoveryBtn');
+
+      if (data.isRunning) {
+        badge.textContent = 'Running';
+        badge.style.background = 'var(--accent-success)';
+        badge.style.color = 'white';
+        const nextCheck = data.nextCheckAt ? `Next check: ${formatTimeAgo(data.nextCheckAt - Date.now() + Date.now())}` : '';
+        details.innerHTML = `Checked: ${data.observationsChecked} | Found: ${data.newItemsFound} items<br>${nextCheck}`;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      } else {
+        badge.textContent = 'Stopped';
+        badge.style.background = 'var(--bg-tertiary)';
+        badge.style.color = 'var(--text-muted)';
+        details.textContent = `Last run: Checked ${data.observationsChecked}, found ${data.newItemsFound} items`;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+
+      // Update activity log count
+      const logData = await api('/ontology/discovery/logs?limit=50');
+      if (logData) {
+        document.getElementById('activityLogCount').textContent = logData.count || 0;
+      }
+    }
+
+    async function startDiscovery() {
+      const data = await api('/ontology/discovery/start', { method: 'POST' });
+      if (data && data.success) {
+        showToast('Discovery worker started');
+        refreshDiscoveryStatus();
+        refreshActivityLog();
+      }
+    }
+
+    async function stopDiscovery() {
+      const data = await api('/ontology/discovery/stop', { method: 'POST' });
+      if (data && data.success) {
+        showToast('Discovery worker stopped');
+        refreshDiscoveryStatus();
+        refreshActivityLog();
+      }
+    }
+
+    async function runDiscoveryNow() {
+      showToast('Running discovery check...');
+      const data = await api('/ontology/discovery/run', { method: 'POST' });
+      if (data && data.success) {
+        if (data.totalNewItems > 0) {
+          showToast(`Found ${data.totalNewItems} new item(s)!`);
+          loadDashboard();
+        } else {
+          showToast('No new updates found');
+        }
+        loadObservations();
+        refreshDiscoveryStatus();
+        refreshActivityLog();
+      }
+    }
+
+    // Activity Log
+    let activityLogVisible = false;
+
+    function toggleActivityLog() {
+      activityLogVisible = !activityLogVisible;
+      const panel = document.getElementById('activityLogPanel');
+      const icon = document.getElementById('activityLogToggleIcon');
+
+      if (activityLogVisible) {
+        panel.style.display = 'block';
+        icon.textContent = '▼';
+        refreshActivityLog();
+      } else {
+        panel.style.display = 'none';
+        icon.textContent = '▶';
+      }
+    }
+
+    async function refreshActivityLog() {
+      const data = await api('/ontology/discovery/logs?limit=50');
+      if (!data) return;
+
+      document.getElementById('activityLogCount').textContent = data.count || 0;
+
+      if (!data.logs || data.logs.length === 0) {
+        document.getElementById('activityLogList').innerHTML = `
+          <div class="empty-state" style="padding: 1rem; text-align: center; color: var(--text-muted);">No activity yet</div>
+        `;
+        return;
+      }
+
+      const typeColors = {
+        check: 'var(--text-muted)',
+        found: 'var(--accent-green)',
+        error: 'var(--accent-red)',
+        start: 'var(--accent-primary)',
+        stop: 'var(--accent-yellow)',
+      };
+
+      const typeIcons = {
+        check: '🔍',
+        found: '✨',
+        error: '❌',
+        start: '▶️',
+        stop: '⏹️',
+      };
+
+      const html = data.logs.map(log => {
+        const time = new Date(log.timestamp).toLocaleTimeString();
+        const color = typeColors[log.type] || 'var(--text-secondary)';
+        const icon = typeIcons[log.type] || '•';
+        return `
+          <div style="padding: 0.5rem 1rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 0.75rem; align-items: flex-start;">
+            <span style="color: var(--text-muted); min-width: 70px;">${time}</span>
+            <span>${icon}</span>
+            <span style="color: ${color}; flex: 1;">${log.message}</span>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('activityLogList').innerHTML = html;
+    }
+
+    async function clearActivityLog() {
+      if (!confirm('Clear all activity logs?')) return;
+      const data = await api('/ontology/discovery/logs', { method: 'DELETE' });
+      if (data && data.success) {
+        showToast('Activity log cleared');
+        refreshActivityLog();
       }
     }
 

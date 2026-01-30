@@ -55,6 +55,7 @@ import {
   Consultant,
   ThreadManager,
 } from '../skills';
+import { DiscoveryWorker } from '../skills/discovery-worker';
 
 // ============================================================================
 // Types
@@ -101,6 +102,7 @@ export class PanyaHTTPAdapter {
   private learningLoop: LearningLoop;
   private consultant: Consultant;
   private threadManager: ThreadManager;
+  private discoveryWorker: DiscoveryWorker;
 
   constructor(config?: HTTPServerConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -114,6 +116,7 @@ export class PanyaHTTPAdapter {
     this.learningLoop = new LearningLoop();
     this.consultant = new Consultant();
     this.threadManager = new ThreadManager();
+    this.discoveryWorker = new DiscoveryWorker();
   }
 
   // ==========================================================================
@@ -134,7 +137,7 @@ export class PanyaHTTPAdapter {
         // CORS headers
         const corsHeaders = {
           'Access-Control-Allow-Origin': this.config.corsOrigins.join(', '),
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
         };
 
@@ -365,9 +368,60 @@ export class PanyaHTTPAdapter {
     }
 
     // Observations
+    if (path === '/ontology/observations' && method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') || '100');
+      const processedParam = url.searchParams.get('processed');
+      const processed = processedParam === null ? undefined : processedParam === 'true';
+      return this.handleListObservations(limit, processed);
+    }
+
     if (path === '/ontology/observations' && method === 'POST') {
       const body = await req.json() as Record<string, any>;
       return this.handleAddObservation(body);
+    }
+
+    // Auto-discovery toggle
+    if (path.match(/^\/ontology\/observations\/(\d+)\/autodiscover$/) && method === 'PUT') {
+      const id = parseInt(path.split('/')[3]);
+      const body = await req.json() as Record<string, any>;
+      return this.handleSetAutoDiscover(id, body);
+    }
+
+    // Manual discovery trigger
+    if (path.match(/^\/ontology\/observations\/(\d+)\/discover$/) && method === 'POST') {
+      const id = parseInt(path.split('/')[3]);
+      return this.handleDiscoverOne(id);
+    }
+
+    // Discovery worker status
+    if (path === '/ontology/discovery/status' && method === 'GET') {
+      return this.handleDiscoveryStatus();
+    }
+
+    // Start discovery worker
+    if (path === '/ontology/discovery/start' && method === 'POST') {
+      return this.handleStartDiscovery();
+    }
+
+    // Stop discovery worker
+    if (path === '/ontology/discovery/stop' && method === 'POST') {
+      return this.handleStopDiscovery();
+    }
+
+    // Run discovery check (manual)
+    if (path === '/ontology/discovery/run' && method === 'POST') {
+      return this.handleRunDiscovery();
+    }
+
+    // Get discovery activity logs
+    if (path === '/ontology/discovery/logs' && method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') || '50');
+      return this.handleDiscoveryLogs(limit);
+    }
+
+    // Clear discovery activity logs
+    if (path === '/ontology/discovery/logs' && method === 'DELETE') {
+      return this.handleClearDiscoveryLogs();
     }
 
     // Identity
@@ -1057,16 +1111,142 @@ export class PanyaHTTPAdapter {
     };
   }
 
-  private handleAddObservation(body: Record<string, any>): HTTPResponse {
-    const { content, type = 'external', sourceId, metadata } = body;
+  private async handleAddObservation(body: Record<string, any>): Promise<HTTPResponse> {
+    const { content, type = 'external', sourceId, metadata, autoProcess = true } = body;
     if (!content) {
       return { status: 400, body: { error: 'content is required' } };
     }
 
     const id = this.learningLoop.addObservation(this.panya.brain, content, type, sourceId, metadata);
+
+    // Auto-run learning loop if requested
+    let loopResult = null;
+    if (autoProcess) {
+      loopResult = await this.learningLoop.runOnce(this.panya.brain);
+    }
+
     return {
       status: 200,
-      body: { success: true, observationId: id, type },
+      body: {
+        success: true,
+        observationId: id,
+        type,
+        autoProcessed: autoProcess,
+        loopResult: loopResult ? {
+          durationMs: loopResult.durationMs,
+          stages: loopResult.stages,
+        } : null,
+      },
+    };
+  }
+
+  private handleListObservations(limit: number, processed?: boolean): HTTPResponse {
+    const observations = this.panya.brain.getObservations({ limit, processed });
+    return {
+      status: 200,
+      body: {
+        observations,
+        total: observations.length,
+      },
+    };
+  }
+
+  private handleSetAutoDiscover(id: number, body: Record<string, any>): HTTPResponse {
+    const { enabled, intervalMs } = body;
+
+    if (typeof enabled !== 'boolean') {
+      return { status: 400, body: { error: 'enabled (boolean) is required' } };
+    }
+
+    const obs = this.panya.brain.getObservation(id);
+    if (!obs) {
+      return { status: 404, body: { error: 'Observation not found', id } };
+    }
+
+    // Only github_repo supports auto-discovery for now
+    if (enabled && obs.observationType !== 'github_repo') {
+      return {
+        status: 400,
+        body: { error: `Auto-discovery not supported for type: ${obs.observationType}` },
+      };
+    }
+
+    this.panya.brain.setAutoDiscover(id, enabled, intervalMs);
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        id,
+        autoDiscover: enabled,
+        intervalMs: intervalMs || 3600000,
+      },
+    };
+  }
+
+  private async handleDiscoverOne(id: number): Promise<HTTPResponse> {
+    const result = await this.discoveryWorker.discoverOne(this.panya.brain, id);
+
+    return {
+      status: result.error ? 400 : 200,
+      body: result,
+    };
+  }
+
+  private handleDiscoveryStatus(): HTTPResponse {
+    return {
+      status: 200,
+      body: this.discoveryWorker.getStatus(),
+    };
+  }
+
+  private handleStartDiscovery(): HTTPResponse {
+    this.discoveryWorker.start(this.panya.brain);
+    return {
+      status: 200,
+      body: { success: true, message: 'Discovery worker started' },
+    };
+  }
+
+  private handleStopDiscovery(): HTTPResponse {
+    this.discoveryWorker.stop();
+    return {
+      status: 200,
+      body: { success: true, message: 'Discovery worker stopped' },
+    };
+  }
+
+  private async handleRunDiscovery(): Promise<HTTPResponse> {
+    const results = await this.discoveryWorker.runDiscovery(this.panya.brain);
+    return {
+      status: 200,
+      body: {
+        success: true,
+        results,
+        totalNewItems: results.reduce((sum, r) => sum + r.newItems, 0),
+      },
+    };
+  }
+
+  private handleDiscoveryLogs(limit: number): HTTPResponse {
+    const logs = this.discoveryWorker.getActivityLog(limit);
+    return {
+      status: 200,
+      body: {
+        count: logs.length,
+        logs,
+      },
+    };
+  }
+
+  private handleClearDiscoveryLogs(): HTTPResponse {
+    this.discoveryWorker.clearActivityLog();
+    return {
+      status: 200,
+      body: {
+        success: true,
+        message: 'Activity logs cleared',
+      },
     };
   }
 

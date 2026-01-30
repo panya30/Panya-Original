@@ -308,6 +308,11 @@ export interface Observation {
   processedAt?: number;
   resultDocumentIds?: string[];
   createdAt: number;
+  // Auto-discovery fields
+  autoDiscover: boolean;
+  discoverIntervalMs: number; // default 1 hour
+  lastDiscoveredAt?: number;
+  discoverCursor?: string; // e.g., last commit SHA, last item date
 }
 
 // ============================================================================
@@ -759,6 +764,20 @@ export class PanyaDatabase {
         } catch { /* concepts column may not exist */ }
       }
     } catch { /* Already migrated */ }
+
+    // Add auto-discovery columns to observations (004-autodiscover migration)
+    try {
+      this.db.exec(`ALTER TABLE observations ADD COLUMN auto_discover INTEGER NOT NULL DEFAULT 0`);
+    } catch { /* Column may already exist */ }
+    try {
+      this.db.exec(`ALTER TABLE observations ADD COLUMN discover_interval_ms INTEGER NOT NULL DEFAULT 3600000`);
+    } catch { /* Column may already exist */ }
+    try {
+      this.db.exec(`ALTER TABLE observations ADD COLUMN last_discovered_at INTEGER`);
+    } catch { /* Column may already exist */ }
+    try {
+      this.db.exec(`ALTER TABLE observations ADD COLUMN discover_cursor TEXT`);
+    } catch { /* Column may already exist */ }
 
     // Insert default promotion rules
     this.db.exec(`
@@ -1907,7 +1926,35 @@ export class PanyaDatabase {
       SELECT * FROM observations WHERE processed = 0 ORDER BY created_at ASC LIMIT ?
     `).all(limit);
 
-    return results.map(r => ({
+    return results.map(r => this.mapObservationRow(r));
+  }
+
+  /**
+   * Get all observations with optional filters
+   */
+  getObservations(options: {
+    limit?: number;
+    processed?: boolean;
+    type?: ObservationType;
+  } = {}): Observation[] {
+    const { limit = 100, processed, type } = options;
+
+    let query = 'SELECT * FROM observations WHERE 1=1';
+    if (processed !== undefined) {
+      query += ` AND processed = ${processed ? 1 : 0}`;
+    }
+    if (type) {
+      query += ` AND observation_type = '${type}'`;
+    }
+    query += ` ORDER BY created_at DESC LIMIT ${limit}`;
+
+    const results = this.db.query<any, []>(query).all();
+
+    return results.map(r => this.mapObservationRow(r));
+  }
+
+  private mapObservationRow(r: any): Observation {
+    return {
       id: r.id,
       observationType: r.observation_type as ObservationType,
       content: r.content,
@@ -1918,7 +1965,68 @@ export class PanyaDatabase {
       processedAt: r.processed_at,
       resultDocumentIds: r.result_document_ids ? JSON.parse(r.result_document_ids) : undefined,
       createdAt: r.created_at,
-    }));
+      autoDiscover: !!r.auto_discover,
+      discoverIntervalMs: r.discover_interval_ms || 3600000,
+      lastDiscoveredAt: r.last_discovered_at,
+      discoverCursor: r.discover_cursor,
+    };
+  }
+
+  /**
+   * Toggle auto-discovery for an observation
+   */
+  setAutoDiscover(id: number, enabled: boolean, intervalMs?: number): void {
+    const interval = intervalMs || 3600000; // default 1 hour
+    this.db.exec(`
+      UPDATE observations SET
+        auto_discover = ${enabled ? 1 : 0},
+        discover_interval_ms = ${interval}
+      WHERE id = ${id}
+    `);
+  }
+
+  /**
+   * Get observations that are due for discovery
+   */
+  getObservationsDueForDiscovery(): Observation[] {
+    const now = Date.now();
+    const results = this.db.query<any, []>(`
+      SELECT * FROM observations
+      WHERE auto_discover = 1
+        AND (last_discovered_at IS NULL OR (? - last_discovered_at) > discover_interval_ms)
+      ORDER BY last_discovered_at ASC NULLS FIRST
+    `.replace('?', String(now))).all();
+
+    return results.map(r => this.mapObservationRow(r));
+  }
+
+  /**
+   * Update discovery state after processing
+   */
+  updateDiscoveryState(id: number, cursor?: string): void {
+    const now = Date.now();
+    if (cursor) {
+      this.db.exec(`
+        UPDATE observations SET
+          last_discovered_at = ${now},
+          discover_cursor = '${cursor}'
+        WHERE id = ${id}
+      `);
+    } else {
+      this.db.exec(`
+        UPDATE observations SET
+          last_discovered_at = ${now}
+        WHERE id = ${id}
+      `);
+    }
+  }
+
+  /**
+   * Get a single observation by ID
+   */
+  getObservation(id: number): Observation | null {
+    const result = this.db.query<any, [number]>(`SELECT * FROM observations WHERE id = ?`).get(id);
+    return result ? this.mapObservationRow(result) : null;
   }
 
   updateObservationStage(id: number, stage: ProcessingStage, resultDocumentIds?: string[]): void {
